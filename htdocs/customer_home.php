@@ -103,7 +103,7 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
                         <?php if (!$activeReservation) { ?>
                         <details class="portal-booking-form" id="book-room-<?php echo (int) $room['id']; ?>"<?php echo $failedGuestBookingRoomId === (int) $room['id'] ? ' open' : ''; ?>>
                             <summary>Book <?php echo e($room['room_name']); ?> <span aria-hidden="true">+</span></summary>
-                            <form action="save_guest_booking.php" method="POST">
+                            <form action="save_guest_booking.php" method="POST" data-booking-form data-rate="<?php echo e($room['room_rate']); ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                                 <input type="hidden" name="room_id" value="<?php echo (int) $room['id']; ?>">
                                 <label>Full name<input type="text" name="full_name" autocomplete="name" maxlength="100" value="<?php echo e($guestBookingOld['full_name'] ?? $_SESSION['name']); ?>" required></label>
@@ -113,6 +113,12 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
                                     <label>Nights<input type="number" name="hours" min="1" max="365" step="1" value="<?php echo e($guestBookingOld['hours'] ?? '1'); ?>" required></label>
                                     <label>Payment method<select name="payment_method" required><option value="Cash">Cash</option><option value="GCash" <?php echo ($guestBookingOld['payment_method'] ?? '') === 'GCash' ? 'selected' : ''; ?>>GCash</option></select></label>
                                 </div>
+                                <section class="portal-stay-summary" aria-label="Stay summary">
+                                    <h4>Stay summary</h4>
+                                    <p><span>Rate per night</span><strong data-rate-display><?php echo money($room['room_rate']); ?></strong></p>
+                                    <p><span>Room charge</span><strong data-room-charge><?php echo money($room['room_rate'] * (int) ($guestBookingOld['hours'] ?? 1)); ?></strong></p>
+                                    <p class="portal-stay-total"><span>Total amount</span><strong data-total-display><?php echo money($room['room_rate'] * (int) ($guestBookingOld['hours'] ?? 1)); ?></strong></p>
+                                </section>
                                 <button class="portal-button" type="submit">Confirm booking <?php echo ui_icon('arrow-up'); ?></button>
                                 <p>Booking starts now and makes this room occupied across the hotel system.</p>
                             </form>

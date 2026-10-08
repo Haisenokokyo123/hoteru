@@ -53,6 +53,33 @@
   openBooking();
 })();
 
+(() => {
+  const formatter = new Intl.NumberFormat("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  document.querySelectorAll("[data-booking-form]").forEach((form) => {
+    const nights = form.elements.hours;
+    const rate = Number.parseFloat(form.dataset.rate) || 0;
+    const roomCharge = form.querySelector("[data-room-charge]");
+    const total = form.querySelector("[data-total-display]");
+    if (!nights || !roomCharge || !total) return;
+
+    const updateSummary = () => {
+      const count = Math.max(0, Number.parseInt(nights.value, 10) || 0);
+      const amount = rate * count;
+      const formatted = `₱${formatter.format(amount)}`;
+      roomCharge.textContent = formatted;
+      total.textContent = formatted;
+    };
+
+    nights.addEventListener("input", updateSummary);
+    nights.addEventListener("change", updateSummary);
+    updateSummary();
+  });
+})();
+
 // Content stays visible without JavaScript; motion is added only as it enters view.
 (() => {
   const sections = document.querySelectorAll("[data-reveal]");

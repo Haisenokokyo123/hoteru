@@ -1010,6 +1010,40 @@
   grid-template-columns: 0.7fr 1.3fr;
   gap: 13px;
 }
+.portal-guest-page .portal-stay-summary {
+  padding: 17px;
+  background: #edf1e9;
+  color: #183d34;
+}
+.portal-guest-page .portal-stay-summary h4 {
+  margin: 0 0 13px;
+  color: #745629;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.portal-guest-page .portal-stay-summary p {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.portal-guest-page .portal-stay-summary strong {
+  font-weight: 700;
+  text-align: right;
+}
+.portal-guest-page .portal-stay-summary .portal-stay-total {
+  align-items: baseline;
+  margin-top: 9px;
+  padding-top: 15px;
+  border-top: 1px solid #bdcabb;
+}
+.portal-guest-page .portal-stay-total strong {
+  font: 26px/1.1 Georgia, "Times New Roman", serif;
+}
 .portal-guest-page .portal-booking-form .portal-button {
   width: 100%;
   margin-top: 3px;
