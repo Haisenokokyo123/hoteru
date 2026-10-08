@@ -40,21 +40,25 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Room Management - Bongabong View Hotel</title>
-    <link rel="stylesheet" href="style.css?v=500">
+    <link rel="stylesheet" href="style.css?v=20261008">
 </head>
 <body>
 
 <?php render_navbar(); ?>
 
-<div class="page-wrapper">
-    <div class="section-header-row">
-        <h1 class="page-title">Room Management</h1>
-        <a href="index.php#rooms" class="small-action-link">Back to Room Selection</a>
+<main class="page-wrapper" id="main-content">
+    <div class="section-header-row page-heading">
+        <div>
+            <span class="eyebrow">The room collection</span>
+            <h1 class="page-title">Room management</h1>
+            <p class="page-description">Keep every room ready for a memorable stay. Manage rates, details, and availability.</p>
+        </div>
+        <a href="index.php#rooms" class="small-action-link">View room availability <span aria-hidden="true">↗</span></a>
     </div>
 
     <?php if ($msg !== "") { ?>
@@ -75,43 +79,46 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
 
     <div class="management-grid">
         <div class="panel-box">
-            <h2>Add New Room</h2>
+            <span class="eyebrow">Expand your collection</span>
+            <h2>Add a room</h2>
 
             <form action="save_room.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                 <input type="hidden" name="action" value="add">
 
-                <label>Room Name</label>
-                <input type="text" name="room_name" maxlength="50" placeholder="Example: King Room 3" required>
+                <label for="new-room-name">Room name</label>
+                <input id="new-room-name" type="text" name="room_name" maxlength="50" placeholder="e.g. King Room 3" required>
 
-                <label>Room Type</label>
-                <select name="room_type" required>
+                <label for="new-room-type">Room type</label>
+                <select id="new-room-type" name="room_type" required>
                     <option value="King Size Bed">King Size Bed</option>
                     <option value="2 Single Bed">2 Single Bed</option>
                     <option value="Family Room">Family Room</option>
                     <option value="Fan Room">Fan Room</option>
                 </select>
 
-                <label>Room Rate Per Night</label>
-                <input type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" required>
+                <label for="new-room-rate">Nightly rate (₱)</label>
+                <input id="new-room-rate" type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" required>
 
-                <label>Room Image</label>
-                <input type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp">
-                <small class="form-note">Upload JPG, PNG, or WEBP up to 5 MB. If empty, the hotel image will be used.</small>
+                <label for="new-room-image">Room photograph</label>
+                <input id="new-room-image" type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp" aria-describedby="new-image-help">
+                <small id="new-image-help" class="form-note">Optional · JPG, PNG, or WEBP, up to 5 MB.</small>
 
                 <button type="submit">Add Room</button>
             </form>
         </div>
 
         <div class="panel-box">
-            <h2>Search and Filter</h2>
+            <span class="eyebrow">Find your room</span>
+            <h2>Search the collection</h2>
+            <p class="panel-description">Browse by room category or review rooms currently hidden from booking.</p>
 
             <form method="GET" action="rooms.php" class="stacked-form">
-                <label>Search</label>
-                <input type="text" name="search" placeholder="Search room name or type" value="<?php echo e($search); ?>">
+                <label for="room-search">Room name or type</label>
+                <input id="room-search" type="search" name="search" placeholder="Search the collection" value="<?php echo e($search); ?>">
 
-                <label>Filter</label>
-                <select name="filter">
+                <label for="room-filter">Show rooms</label>
+                <select id="room-filter" name="filter">
                     <option value="active" <?php if ($filter == "active") echo "selected"; ?>>Active Rooms</option>
                     <option value="all" <?php if ($filter == "all") echo "selected"; ?>>All Rooms</option>
                     <option value="disabled" <?php if ($filter == "disabled") echo "selected"; ?>>Disabled Rooms</option>
@@ -121,13 +128,18 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
                     <option value="fan" <?php if ($filter == "fan") echo "selected"; ?>>Fan Room</option>
                 </select>
 
-                <button type="submit">Apply</button>
-                <a href="rooms.php" class="reset-link">Reset Filter</a>
+                <div class="filter-actions">
+                    <button type="submit">Apply filters</button>
+                    <a href="rooms.php" class="reset-link">Clear filters</a>
+                </div>
             </form>
         </div>
     </div>
 
-    <h2 class="section-title room-list-title">Rooms List</h2>
+    <div class="section-header-row room-list-title">
+        <h2 class="section-title">Your rooms</h2>
+        <span class="section-count"><?php echo $rooms ? mysqli_num_rows($rooms) : 0; ?> rooms found</span>
+    </div>
 
     <div class="rooms-grid manage-room-grid">
         <?php if ($rooms && mysqli_num_rows($rooms) > 0) { ?>
@@ -139,11 +151,11 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
                 ?>
 
                 <div class="room-card manage-room-card">
-                    <img src="<?php echo e(room_image($room)); ?>" class="room-image large-room-image">
+                    <?php render_room_visual($room, 'large-room-image'); ?>
 
                     <div class="room-info">
                         <h3><?php echo e($room["room_name"]); ?></h3>
-                        <p class="room-rate"><?php echo money($room["room_rate"]); ?> / night</p>
+                        <p class="room-rate"><?php echo money($room["room_rate"]); ?> <small>/ night</small></p>
                         <span class="type-pill"><?php echo e($room["room_type"]); ?></span>
 
                         <?php if (!$isActive) { ?>
@@ -159,31 +171,34 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
                             <p><a class="receipt-link" href="index.php?room_id=<?php echo (int)$room["id"]; ?>#booking"><?php echo $isOccupied ? "Guest Details / Check Out" : "Book This Room"; ?></a></p>
                         <?php } ?>
 
+                        <details class="room-edit-details">
+                        <summary>Edit room details</summary>
                         <form action="save_room.php" method="POST" enctype="multipart/form-data" class="room-edit-form">
                             <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                             <input type="hidden" name="action" value="update">
                             <input type="hidden" name="room_id" value="<?php echo (int)$room["id"]; ?>">
 
-                            <label>Room Name</label>
-                            <input type="text" name="room_name" maxlength="50" value="<?php echo e($room["room_name"]); ?>" required>
+                            <label for="room-name-<?php echo (int)$room["id"]; ?>">Room name</label>
+                            <input id="room-name-<?php echo (int)$room["id"]; ?>" type="text" name="room_name" maxlength="50" value="<?php echo e($room["room_name"]); ?>" required>
 
-                            <label>Room Type</label>
-                            <select name="room_type" required>
+                            <label for="room-type-<?php echo (int)$room["id"]; ?>">Room type</label>
+                            <select id="room-type-<?php echo (int)$room["id"]; ?>" name="room_type" required>
                                 <option value="King Size Bed" <?php if ($room["room_type"] == "King Size Bed") echo "selected"; ?>>King Size Bed</option>
                                 <option value="2 Single Bed" <?php if ($room["room_type"] == "2 Single Bed") echo "selected"; ?>>2 Single Bed</option>
                                 <option value="Family Room" <?php if ($room["room_type"] == "Family Room") echo "selected"; ?>>Family Room</option>
                                 <option value="Fan Room" <?php if ($room["room_type"] == "Fan Room") echo "selected"; ?>>Fan Room</option>
                             </select>
 
-                            <label>Rate Per Night</label>
-                            <input type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" value="<?php echo e($room["room_rate"]); ?>" required>
+                            <label for="room-rate-<?php echo (int)$room["id"]; ?>">Nightly rate (₱)</label>
+                            <input id="room-rate-<?php echo (int)$room["id"]; ?>" type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" value="<?php echo e($room["room_rate"]); ?>" required>
 
-                            <label>Change Room Image</label>
-                            <input type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp">
-                            <small class="form-note">Leave empty if you do not want to change the image.</small>
+                            <label for="room-image-<?php echo (int)$room["id"]; ?>">Replace photograph</label>
+                            <input id="room-image-<?php echo (int)$room["id"]; ?>" type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp" aria-describedby="image-help-<?php echo (int)$room["id"]; ?>">
+                            <small id="image-help-<?php echo (int)$room["id"]; ?>" class="form-note">Leave empty to keep the current photograph.</small>
 
                             <button type="submit">Save Changes</button>
                         </form>
+                        </details>
 
                         <?php if ($isActive) { ?>
                             <form action="save_room.php" method="POST" onsubmit="return confirm('Disable this room? It will be hidden from booking.');">
@@ -204,10 +219,10 @@ $isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], 
                 </div>
             <?php } ?>
         <?php } else { ?>
-            <div class="empty-card">No rooms found.</div>
+            <div class="empty-card"><h3>No rooms found</h3><p>Try another room name or clear your filters to see more rooms.</p><a href="rooms.php" class="small-action-link">Clear filters</a></div>
         <?php } ?>
     </div>
-</div>
+</main>
 
 <?php render_footer(); ?>
 

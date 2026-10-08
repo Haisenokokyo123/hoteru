@@ -55,76 +55,100 @@ $totalSales = $totalRow["sales"] ? $totalRow["sales"] : 0;
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Transaction History - Bongabong View Hotel</title>
-    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="style.css?v=20261008">
 </head>
 <body>
 
 <?php render_navbar(); ?>
 
-<div class="page-wrapper">
-    <div class="section-header-row">
-        <h1 class="page-title">Transaction History</h1>
+<main class="page-wrapper" id="main-content">
+    <div class="section-header-row page-heading">
+        <div>
+            <span class="eyebrow">The guest ledger</span>
+            <h1 class="page-title">Transaction history</h1>
+            <p class="page-description">Every stay, payment, and receipt, together in one place.</p>
+        </div>
         <form action="clear_transactions.php" method="POST" class="clear-form" onsubmit="return confirm('Archive all completed transactions? Active occupied rooms will not be affected.');">
             <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
             <input type="hidden" name="redirect" value="transactions.php?clear=success">
-            <button type="submit" class="danger-btn">Archive Completed</button>
+            <button type="submit" class="secondary-btn">Archive completed</button>
         </form>
     </div>
 
     <?php if (isset($_GET["clear"]) && $_GET["clear"] == "success") { ?>
-        <div class="success-box page-alert">Completed transactions archived successfully.</div>
+        <div class="success-box page-alert" role="status">Completed transactions archived successfully.</div>
     <?php } ?>
 
-    <section class="dashboard simple-dashboard">
+    <section class="dashboard simple-dashboard" aria-label="Filtered transaction totals">
         <div class="dash-card">
+            <p>Matching transactions</p>
             <h2><?php echo (int)$totalBookings; ?></h2>
-            <p>Transactions Found</p>
         </div>
 
         <div class="dash-card">
+            <p>Total booking value</p>
             <h2><?php echo money($totalSales); ?></h2>
-            <p>Total Sales Found</p>
         </div>
     </section>
 
     <div class="panel-box">
-        <h2>Search / Filter Transactions</h2>
+        <h2>Find a transaction</h2>
 
         <form method="GET" action="transactions.php" class="filter-bar wide-filter">
-            <input type="text" name="search" placeholder="Search guest, room, or payment" value="<?php echo e($search); ?>">
-            <input type="date" name="date_from" value="<?php echo e($date_from); ?>">
-            <input type="date" name="date_to" value="<?php echo e($date_to); ?>">
-
-            <select name="archive_filter">
+            <div class="field-group">
+                <label for="transaction-search">Guest, room, or payment</label>
+                <input id="transaction-search" type="search" name="search" placeholder="Search transactions" value="<?php echo e($search); ?>">
+            </div>
+            <div class="field-group">
+                <label for="date-from">Booked from</label>
+                <input id="date-from" type="date" name="date_from" value="<?php echo e($date_from); ?>">
+            </div>
+            <div class="field-group">
+                <label for="date-to">Booked until</label>
+                <input id="date-to" type="date" name="date_to" value="<?php echo e($date_to); ?>">
+            </div>
+            <div class="field-group">
+            <label for="archive-filter">History</label>
+            <select id="archive-filter" name="archive_filter">
                 <option value="not_archived" <?php if ($archive_filter == "not_archived") echo "selected"; ?>>Current History</option>
                 <option value="archived" <?php if ($archive_filter == "archived") echo "selected"; ?>>Archived</option>
                 <option value="all" <?php if ($archive_filter == "all") echo "selected"; ?>>All</option>
             </select>
+            </div>
 
-            <button type="submit">Apply</button>
-            <a href="transactions.php" class="reset-link">Reset</a>
+            <div class="filter-actions">
+                <button type="submit">Apply filters</button>
+                <a href="transactions.php" class="reset-link">Clear</a>
+            </div>
         </form>
     </div>
 
     <div class="panel-box table-panel">
-        <h2>Transactions</h2>
+        <div class="section-header-row">
+            <h2 id="transactions-heading">Guest transactions</h2>
+            <span class="section-count">Latest 300 matching records</span>
+        </div>
 
+        <div class="table-scroll" role="region" aria-labelledby="transactions-heading" tabindex="0">
         <table>
+            <thead>
             <tr>
-                <th>Guest</th>
-                <th>Room</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Payment</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Receipt</th>
+                <th scope="col">Guest</th>
+                <th scope="col">Room</th>
+                <th scope="col">Check-in</th>
+                <th scope="col">Check-out</th>
+                <th scope="col">Payment</th>
+                <th scope="col">Total</th>
+                <th scope="col">Status</th>
+                <th scope="col">Receipt</th>
             </tr>
+            </thead>
+            <tbody>
 
             <?php if ($transactions && mysqli_num_rows($transactions) > 0) { ?>
                 <?php while ($row = mysqli_fetch_assoc($transactions)) { ?>
@@ -147,17 +171,19 @@ $totalSales = $totalRow["sales"] ? $totalRow["sales"] : 0;
                                 <?php echo e($status); ?>
                             </span>
                         </td>
-                        <td><a href="receipt.php?id=<?php echo (int)$row["id"]; ?>">View</a></td>
+                        <td><a class="receipt-link" href="receipt.php?id=<?php echo (int)$row["id"]; ?>" aria-label="View receipt for <?php echo e($row["full_name"]); ?>">View <span aria-hidden="true">↗</span></a></td>
                     </tr>
                 <?php } ?>
             <?php } else { ?>
                 <tr>
-                    <td colspan="8" class="empty-row">No transactions found.</td>
+                    <td colspan="8" class="empty-row">No transactions match your filters. Try another date range or search.</td>
                 </tr>
             <?php } ?>
+            </tbody>
         </table>
+        </div>
     </div>
-</div>
+</main>
 
 <?php render_footer(); ?>
 

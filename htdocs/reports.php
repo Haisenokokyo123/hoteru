@@ -63,96 +63,111 @@ $roomTypeSales = mysqli_query($conn, "
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sales Reports - Bongabong View Hotel</title>
-    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="style.css?v=20261008">
 </head>
 <body>
 
 <?php render_navbar(); ?>
 
-<div class="page-wrapper">
-    <h1 class="page-title">Sales Report</h1>
+<main class="page-wrapper" id="main-content">
+    <div class="page-heading">
+        <span class="eyebrow">A clearer perspective</span>
+        <h1 class="page-title">Sales reports</h1>
+        <p class="page-description">Follow booking performance, payment trends, and today's room availability.</p>
+    </div>
 
-    <section class="dashboard simple-dashboard">
+    <section class="dashboard simple-dashboard" aria-label="Sales overview">
         <div class="dash-card">
+            <p>Sales today</p>
             <h2><?php echo money($today["sales"]); ?></h2>
-            <p>Sales Today</p>
         </div>
 
         <div class="dash-card">
+            <p>Sales this week</p>
             <h2><?php echo money($thisWeek["sales"]); ?></h2>
-            <p>Sales This Week</p>
         </div>
 
         <div class="dash-card">
+            <p>Sales this month</p>
             <h2><?php echo money($thisMonth["sales"]); ?></h2>
-            <p>Sales This Month</p>
         </div>
 
         <div class="dash-card">
+            <p>Bookings this month</p>
             <h2><?php echo (int)$thisMonth["bookings"]; ?></h2>
-            <p>Bookings This Month</p>
         </div>
     </section>
 
-    <section class="dashboard simple-dashboard">
+    <section class="dashboard simple-dashboard" aria-label="Today's payments and occupancy">
         <div class="dash-card">
+            <p>Cash today</p>
             <h2><?php echo money($cashToday["sales"]); ?></h2>
-            <p>Cash Today</p>
         </div>
 
         <div class="dash-card">
+            <p>GCash today</p>
             <h2><?php echo money($gcashToday["sales"]); ?></h2>
-            <p>GCash Today</p>
         </div>
 
         <div class="dash-card">
+            <p>Available rooms now</p>
             <h2><?php echo (int)$availableRooms; ?></h2>
-            <p>Available Rooms Now</p>
         </div>
 
         <div class="dash-card">
+            <p>Occupied rooms now</p>
             <h2><?php echo (int)$occupiedRooms; ?></h2>
-            <p>Occupied Rooms Now</p>
         </div>
     </section>
 
     <div class="management-grid">
         <div class="panel-box table-panel">
-            <h2>Payment Breakdown</h2>
+            <h2 id="payment-heading">Payment breakdown</h2>
 
+            <div class="table-scroll" role="region" aria-labelledby="payment-heading" tabindex="0">
             <table>
+                <thead>
                 <tr>
-                    <th>Period</th>
-                    <th>Cash</th>
-                    <th>GCash</th>
+                    <th scope="col">Period</th>
+                    <th scope="col">Cash</th>
+                    <th scope="col">GCash</th>
                 </tr>
+                </thead>
+                <tbody>
                 <tr>
-                    <td>Today</td>
+                    <th scope="row">Today</th>
                     <td><?php echo money($cashToday["sales"]); ?></td>
                     <td><?php echo money($gcashToday["sales"]); ?></td>
                 </tr>
                 <tr>
-                    <td>This Month</td>
+                    <th scope="row">This month</th>
                     <td><?php echo money($cashMonth["sales"]); ?></td>
                     <td><?php echo money($gcashMonth["sales"]); ?></td>
                 </tr>
+                </tbody>
             </table>
+            </div>
         </div>
 
         <div class="panel-box table-panel">
-            <h2>Sales By Room Type This Month</h2>
+            <h2 id="room-sales-heading">Room performance</h2>
+            <p class="panel-description">Bookings and sales by room type this month.</p>
 
+            <div class="table-scroll" role="region" aria-labelledby="room-sales-heading" tabindex="0">
             <table>
+                <thead>
                 <tr>
-                    <th>Room Type</th>
-                    <th>Bookings</th>
-                    <th>Sales</th>
+                    <th scope="col">Room type</th>
+                    <th scope="col">Bookings</th>
+                    <th scope="col">Sales</th>
                 </tr>
+                </thead>
+                <tbody>
 
                 <?php if ($roomTypeSales && mysqli_num_rows($roomTypeSales) > 0) { ?>
                     <?php while ($row = mysqli_fetch_assoc($roomTypeSales)) { ?>
@@ -167,19 +182,26 @@ $roomTypeSales = mysqli_query($conn, "
                         <td colspan="3" class="empty-row">No sales yet this month.</td>
                     </tr>
                 <?php } ?>
+                </tbody>
             </table>
+            </div>
         </div>
     </div>
 
     <div class="panel-box table-panel">
-        <h2>Last 7 Days Sales</h2>
+        <h2 id="daily-sales-heading">The past seven days</h2>
+        <p class="panel-description">Daily booking volume and sales, based on the date each booking was made.</p>
 
+        <div class="table-scroll" role="region" aria-labelledby="daily-sales-heading" tabindex="0">
         <table>
+            <thead>
             <tr>
-                <th>Date</th>
-                <th>Bookings</th>
-                <th>Sales</th>
+                <th scope="col">Date</th>
+                <th scope="col">Bookings</th>
+                <th scope="col">Sales</th>
             </tr>
+            </thead>
+            <tbody>
 
             <?php if ($dailySales && mysqli_num_rows($dailySales) > 0) { ?>
                 <?php while ($row = mysqli_fetch_assoc($dailySales)) { ?>
@@ -194,9 +216,11 @@ $roomTypeSales = mysqli_query($conn, "
                     <td colspan="3" class="empty-row">No sales data yet.</td>
                 </tr>
             <?php } ?>
+            </tbody>
         </table>
+        </div>
     </div>
-</div>
+</main>
 
 <?php render_footer(); ?>
 

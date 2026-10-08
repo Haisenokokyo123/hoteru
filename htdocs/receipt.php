@@ -20,21 +20,24 @@ if ($row === null) {
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Receipt - Bongabong View Hotel</title>
-    <link rel="stylesheet" href="style.css?v=1002">
+    <link rel="stylesheet" href="style.css?v=20261008">
 </head>
 <body>
 
-<div class="receipt-page">
+<div class="no-print"><?php render_navbar(); ?></div>
+
+<main class="receipt-page" id="main-content">
 
     <?php if ($row == null) { ?>
 
         <div class="receipt">
-            <h2>Receipt Not Found</h2>
+            <span class="eyebrow">Guest receipt</span>
+            <h1>Receipt not found</h1>
             <p class="center">The transaction could not be found.</p>
         </div>
 
@@ -55,67 +58,69 @@ if ($row === null) {
             $booked_rate = $nights > 0 ? $room_total / $nights : $room_total;
         ?>
 
-        <div class="receipt">
-            <img src="puno.png" class="receipt-logo">
+        <article class="receipt">
+            <header class="receipt-header">
+                <img src="puno.png" class="receipt-logo" alt="Bongabong View Hotel">
+                <div>
+                    <span class="eyebrow">Bongabong View Hotel</span>
+                    <h1>Your stay, in detail.</h1>
+                    <p>JP Rizal St. Bgy. Poblacion<br>Bongabong, Philippines · 0922 812 5061</p>
+                </div>
+            </header>
 
-            <h2>BONGABONG VIEW HOTEL</h2>
-            <p class="center">JP Rizal St. Bgy. Poblacion</p>
-            <p class="center">Bongabong, Philippines</p>
-            <p class="center">0922 812 5061</p>
+            <div class="receipt-meta">
+                <p><b>Receipt No:</b> <?php echo (int)$row["id"]; ?></p>
+                <p><b>Date:</b> <?php echo e($row["date_created"]); ?></p>
+                <p><b>Status:</b> <?php echo e(reservation_status($row)); ?></p>
+            </div>
 
-            <hr>
+            <div class="receipt-detail-grid">
+                <section class="receipt-section">
+                    <h2>Guest details</h2>
+                    <p><b>Guest Name:</b> <?php echo e($row["full_name"]); ?></p>
+                    <p><b>Contact Number:</b> <?php echo e($row["contact_number"]); ?></p>
+                    <p><b>Address:</b> <?php echo e($row["address"]); ?></p>
+                </section>
+                <section class="receipt-section">
+                    <h2>Stay details</h2>
+                    <p><b>Room:</b> <?php echo e($row["room_name"]); ?></p>
+                    <p><b>Room Type:</b> <?php echo e($row["room_type"]); ?></p>
+                    <p><b>Rate:</b> <?php echo money($booked_rate); ?> / night</p>
+                    <p><b>Number of Nights:</b> <?php echo $nights; ?></p>
+                    <p><b>Check In:</b> <?php echo e($row["check_in"]); ?></p>
+                    <p><b>Check Out:</b> <?php echo e($row["check_out"]); ?></p>
+                </section>
+            </div>
 
-            <p><b>Receipt No:</b> <?php echo (int)$row["id"]; ?></p>
-            <p><b>Date:</b> <?php echo e($row["date_created"]); ?></p>
-            <p><b>Status:</b> <?php echo e(reservation_status($row)); ?></p>
-
-            <hr>
-
-            <p><b>Guest Name:</b> <?php echo e($row["full_name"]); ?></p>
-            <p><b>Contact Number:</b> <?php echo e($row["contact_number"]); ?></p>
-            <p><b>Address:</b> <?php echo e($row["address"]); ?></p>
-
-            <hr>
-
-            <p><b>Room:</b> <?php echo e($row["room_name"]); ?></p>
-            <p><b>Room Type:</b> <?php echo e($row["room_type"]); ?></p>
-            <p><b>Rate:</b> <?php echo money($booked_rate); ?> / night</p>
-            <p><b>Number of Nights:</b> <?php echo $nights; ?></p>
-            <p><b>Check In:</b> <?php echo e($row["check_in"]); ?></p>
-            <p><b>Check Out:</b> <?php echo e($row["check_out"]); ?></p>
-
-            <hr>
-
-            <p><b>Room Total:</b> <?php echo money($room_total); ?></p>
+            <section class="receipt-section receipt-charges">
+            <h2>Payment summary</h2>
+            <p class="receipt-line"><b>Room Total:</b> <span><?php echo money($room_total); ?></span></p>
             <?php if ($extra_bed != 0) { ?>
-                <p><b>Extra Bed:</b> <?php echo money($extra_bed); ?></p>
+                <p class="receipt-line"><b>Extra Bed:</b> <span><?php echo money($extra_bed); ?></span></p>
             <?php } ?>
             <?php if ($food != 0) { ?>
-                <p><b>Food:</b> <?php echo money($food); ?></p>
+                <p class="receipt-line"><b>Food:</b> <span><?php echo money($food); ?></span></p>
             <?php } ?>
             <?php if ($damages != 0) { ?>
-                <p><b>Damages:</b> <?php echo money($damages); ?></p>
+                <p class="receipt-line"><b>Damages:</b> <span><?php echo money($damages); ?></span></p>
             <?php } ?>
 
-            <hr>
-
-            <h3>Total Amount: <?php echo money($row["total_amount"]); ?></h3>
+            <h3 class="receipt-total">Total Amount: <?php echo money($row["total_amount"]); ?></h3>
             <p><b>Payment Method:</b> <?php echo e($row["payment_method"]); ?></p>
+            </section>
 
-            <hr>
-
-            <p class="center">Thank you for staying with us!</p>
-        </div>
+            <p class="receipt-thanks">Thank you for making us part of your journey.</p>
+        </article>
 
         <div class="receipt-actions no-print">
-            <button onclick="window.print()">Print Receipt</button>
+            <button type="button" onclick="window.print()">Print receipt <span aria-hidden="true">↗</span></button>
             <a href="transactions.php">Back to Transactions</a>
             <a href="index.php">Back to Dashboard</a>
         </div>
 
     <?php } ?>
 
-</div>
+</main>
 
 </body>
 </html>

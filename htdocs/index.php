@@ -154,27 +154,36 @@ $recentTransactions = mysqli_query($conn, "
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bongabong View Hotel System</title>
-    <link rel="stylesheet" href="style.css?v=1002">
+    <link rel="stylesheet" href="style.css?v=20261008">
 </head>
 <body>
 
 <?php render_navbar(); ?>
 
-<section class="hero">
-    <div class="hero-overlay">
-        <p class="small-title">FRONT DESK PANEL</p>
-        <h1>Reservation Dashboard</h1>
-
+<main class="frontdesk-main" id="main-content">
+<div class="context-row">
+    <span>Hotel operations <span aria-hidden="true">&nbsp; / &nbsp;</span> Overview</span>
+    <span><?php echo ui_icon('clock'); ?><?php echo e(date('l, d F Y')); ?></span>
+</div>
+<section class="frontdesk-hero" aria-labelledby="dashboard-title">
+    <div class="hero-copy">
+        <p class="eyebrow">WELCOME BACK, <?php echo e($_SESSION['name'] ?? 'OUR TEAM'); ?></p>
+        <h1 id="dashboard-title">Exceptional stays.<br><em>Seamless days.</em></h1>
+        <p class="hero-description">A thoughtful welcome begins here. Your rooms, guests, and daily details, all in one place.</p>
         <div class="hero-buttons">
-            <a href="#rooms" class="primary-btn">Select Room</a>
-            <a href="#booking" class="secondary-btn">Booking Panel</a>
+            <a href="#rooms" class="primary-btn"><?php echo ui_icon('plus'); ?>Create a booking</a>
+            <a href="transactions.php" class="text-link">View transactions <?php echo ui_icon('arrow'); ?></a>
         </div>
     </div>
+    <figure class="hero-photo">
+        <img src="hoteru.png" alt="The Bongabong View Hotel exterior" fetchpriority="high">
+        <figcaption><span><small>YOUR PLACE IN BONGABONG</small>A little closer to home.</span><?php echo ui_icon('location'); ?></figcaption>
+    </figure>
 </section>
 
 <?php if (isset($_GET["checkout"]) && $_GET["checkout"] == "success") { ?>
@@ -193,32 +202,36 @@ $recentTransactions = mysqli_query($conn, "
     <div class="page-alert error-box" role="alert">This room is unavailable. Select another room below.</div>
 <?php } ?>
 
-<section class="dashboard">
+<section class="dashboard" aria-label="Today at a glance">
     <div class="dash-card">
+        <div class="stat-topline">Total rooms <?php echo ui_icon('grid'); ?></div>
         <h2><?php echo $totalRooms; ?></h2>
-        <p>Total Active Rooms</p>
+        <span class="stat-caption">Active in your property</span>
     </div>
 
     <div class="dash-card">
+        <div class="stat-topline">Available rooms <?php echo ui_icon('key'); ?></div>
         <h2><?php echo count($availableRooms); ?></h2>
-        <p>Available Rooms</p>
+        <span class="stat-caption positive">Ready for a warm welcome</span>
     </div>
 
     <div class="dash-card">
+        <div class="stat-topline">Occupied rooms <?php echo ui_icon('bed'); ?></div>
         <h2><?php echo count($occupiedRooms); ?></h2>
-        <p>Occupied Rooms</p>
+        <span class="stat-caption"><?php echo $totalRooms ? round(count($occupiedRooms) / $totalRooms * 100) : 0; ?>% of active rooms</span>
     </div>
 
     <div class="dash-card">
+        <div class="stat-topline">Today's revenue <?php echo ui_icon('chart'); ?></div>
         <h2><?php echo money($todayRevenue); ?></h2>
-        <p>Revenue Today</p>
+        <span class="stat-caption">Recorded bookings today</span>
     </div>
 </section>
 
 <section class="rooms-section" id="rooms">
     <div class="section-header-row">
-        <h2 class="section-title">Room Selection</h2>
-        <a href="rooms.php" class="small-action-link">Manage Rooms</a>
+        <div><p class="eyebrow">ROOMS &amp; AVAILABILITY</p><h2 class="section-title">Find the right stay.</h2><p class="section-description">Choose a room category to welcome your next guest.</p></div>
+        <a href="rooms.php" class="small-action-link">Manage rooms <?php echo ui_icon('arrow'); ?></a>
     </div>
 
     <div class="rooms-grid">
@@ -237,13 +250,14 @@ $recentTransactions = mysqli_query($conn, "
                 ?>
 
                 <a href="index.php?room_id=<?php echo (int)$targetRoomId; ?>#booking" class="<?php echo $cardClass . ' ' . $selectedClass; ?>">
-                    <img src="<?php echo e($group["image"]); ?>" class="room-image">
+                    <?php render_room_visual($group); ?>
 
                     <div class="room-info">
                         <h3><?php echo e($group["label"]); ?></h3>
 
-                        <p class="room-rate"><?php echo money($group["room_rate"]); ?> / night</p>
+                        <p class="room-rate"><strong><?php echo money($group["room_rate"]); ?></strong> / night</p>
 
+                        <div class="room-statusline">
                         <span class="type-pill">
                             <?php echo (int)$group["total_count"]; ?> total rooms
                         </span>
@@ -257,18 +271,8 @@ $recentTransactions = mysqli_query($conn, "
                                 Fully Occupied
                             </span>
                         <?php } ?>
-
-                        <?php if ($group["occupied_count"] > 0) { ?>
-                            <p class="room-description">
-                                <b><?php echo (int)$group["occupied_count"]; ?></b> occupied
-                            </p>
-                        <?php } ?>
-
-                        <?php if ($group["available_count"] > 0) { ?>
-                            <p class="room-description">Click to book this room type</p>
-                        <?php } else { ?>
-                            <p class="room-description">View guest details or check out a guest</p>
-                        <?php } ?>
+                        </div>
+                        <div class="room-card-footer"><span><?php echo $hasAvailable ? 'Select this room' : 'View guest details'; ?></span><?php echo ui_icon('arrow'); ?></div>
                     </div>
                 </a>
             <?php } ?>
@@ -278,11 +282,10 @@ $recentTransactions = mysqli_query($conn, "
     </div>
 </section>
 
-<section class="rooms-section">
-    <div class="panel-box">
-        <h2>Choose a Specific Room</h2>
-        <form action="index.php#booking" method="GET" class="filter-bar">
-            <label for="selected_room">Room</label>
+<section class="room-picker" aria-label="Choose a specific room">
+        <div class="room-picker-label"><?php echo ui_icon('key'); ?><div><strong>Looking for a specific room?</strong><small>Book a stay or manage a current guest.</small></div></div>
+        <form action="index.php#booking" method="GET">
+            <label for="selected_room" class="sr-only">Room</label>
             <select name="room_id" id="selected_room" required>
                 <option value="">Select an available or occupied room</option>
                 <?php foreach ($allRooms as $entry) { ?>
@@ -292,17 +295,8 @@ $recentTransactions = mysqli_query($conn, "
                     </option>
                 <?php } ?>
             </select>
-            <button type="submit">Open Room</button>
+            <button type="submit">Open room <?php echo ui_icon('arrow'); ?></button>
         </form>
-    </div>
-</section>
-
-<section class="hallway-banner">
-    <div class="hallway-content">
-        <p class="small-title">BONGABONG VIEW HOTEL</p>
-        <h2>Comfortable Stay, Simple Booking</h2>
-        <p>Manage rooms, reservations, and guest transactions in one clean dashboard.</p>
-    </div>
 </section>
 
 <section class="content-section">
@@ -310,15 +304,15 @@ $recentTransactions = mysqli_query($conn, "
     <div class="side-panel">
         <div class="panel-box">
             <div class="panel-header">
-                <h2>Today’s Check-ins</h2>
-                <a href="transactions.php" class="small-action-link">View All</a>
+                <div><p class="eyebrow">ARRIVALS</p><h2>Today's check-ins</h2></div>
+                <a href="transactions.php" class="small-action-link">View all</a>
             </div>
 
-            <table>
+            <div class="table-scroll" role="region" aria-label="Today's check-ins" tabindex="0"><table>
                 <tr>
-                    <th>Guest</th>
-                    <th>Room</th>
-                    <th>Payment</th>
+                    <th scope="col">Guest</th>
+                    <th scope="col">Room</th>
+                    <th scope="col">Payment</th>
                 </tr>
 
                 <?php if ($todayCheckins && mysqli_num_rows($todayCheckins) > 0) { ?>
@@ -334,12 +328,12 @@ $recentTransactions = mysqli_query($conn, "
                         <td colspan="3" class="empty-row">No check-ins today.</td>
                     </tr>
                 <?php } ?>
-            </table>
+            </table></div>
         </div>
 
         <div class="panel-box" id="transactions">
             <div class="panel-header">
-                <h2>Recent Transactions</h2>
+                <div><p class="eyebrow">THE LATEST</p><h2>Recent transactions</h2></div>
 
                 <form action="clear_transactions.php" method="POST" class="clear-form" onsubmit="return confirm('Archive all completed transactions? Active occupied rooms will not be affected.');">
                     <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
@@ -348,12 +342,12 @@ $recentTransactions = mysqli_query($conn, "
                 </form>
             </div>
 
-            <table>
+            <div class="table-scroll" role="region" aria-label="Recent transactions" tabindex="0"><table>
                 <tr>
-                    <th>Guest</th>
-                    <th>Total</th>
-                    <th>Date</th>
-                    <th>Receipt</th>
+                    <th scope="col">Guest</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Receipt</th>
                 </tr>
 
                 <?php if ($recentTransactions && mysqli_num_rows($recentTransactions) > 0) { ?>
@@ -370,7 +364,7 @@ $recentTransactions = mysqli_query($conn, "
                         <td colspan="4" class="empty-row">No recent transactions found.</td>
                     </tr>
                 <?php } ?>
-            </table>
+            </table></div>
 
             <a href="transactions.php" class="receipt-link">Open Transaction History</a>
         </div>
@@ -380,21 +374,20 @@ $recentTransactions = mysqli_query($conn, "
         <?php if ($selectedRoom == null) { ?>
 
             <div class="empty-booking">
-                <div class="empty-booking-icon">🛏️</div>
-                <p class="empty-booking-tag">BOOKING PANEL</p>
-                <h2>Select a Room Type</h2>
+                <div class="empty-booking-icon"><?php echo ui_icon('bed'); ?></div>
+                <p class="empty-booking-tag">YOUR NEXT WELCOME</p>
+                <h2>A stay starts here.</h2>
                 <p>
-                    Choose one of the room cards above to open the booking form,
-                    view room details, and generate a billing preview.
+                    Select an available room to add guest details,
+                    review the total, and create a booking.
                 </p>
-                <a href="#rooms" class="primary-btn empty-booking-btn">Browse Room Types</a>
+                <a href="#rooms" class="primary-btn empty-booking-btn">Explore available rooms <?php echo ui_icon('arrow'); ?></a>
             </div>
 
         <?php } elseif ($selectedReservation != null) { ?>
 
-            <img src="<?php echo e($selectedRoomImage); ?>" class="selected-booking-image">
-
-            <h2><?php echo e($selectedRoomLabel); ?> Guest Details</h2>
+            <?php render_room_visual($selectedRoom); ?>
+            <div class="booking-heading"><div><p class="eyebrow">IN HOUSE</p><h2><?php echo e($selectedRoom["room_name"]); ?></h2></div><span class="status-pill status-occupied">Occupied</span></div>
 
             <div class="occupied-details">
                 <p><b>Status:</b> Occupied</p>
@@ -420,9 +413,8 @@ $recentTransactions = mysqli_query($conn, "
 
         <?php } else { ?>
 
-            <img src="<?php echo e($selectedRoomImage); ?>" class="selected-booking-image">
-
-            <h2>New Booking - <?php echo e($selectedRoomLabel); ?></h2>
+            <?php render_room_visual($selectedRoom); ?>
+            <div class="booking-heading"><div><p class="eyebrow">NEW RESERVATION</p><h2><?php echo e($selectedRoom["room_name"]); ?></h2></div><span class="status-pill status-available">Available</span></div>
 
             <form action="save_reservation.php" method="POST">
 
@@ -430,24 +422,24 @@ $recentTransactions = mysqli_query($conn, "
                 <input type="hidden" name="room_id" id="room_id" value="<?php echo (int)$selectedRoom["id"]; ?>">
                 <input type="hidden" id="room_rate" value="<?php echo e($selectedRoom["room_rate"]); ?>">
 
-                <h3>Guest Information</h3>
+                <h3><span class="step-number">01</span> Guest information</h3>
 
                 <div class="form-row">
                     <div>
-                        <label>Full Name</label>
-                        <input type="text" name="full_name" maxlength="100" value="<?php echo e($bookingOld["full_name"] ?? ""); ?>" required>
+                        <label for="full_name">Full name</label>
+                        <input type="text" name="full_name" id="full_name" autocomplete="name" placeholder="Guest's full name" maxlength="100" value="<?php echo e($bookingOld["full_name"] ?? ""); ?>" required>
                     </div>
 
                     <div>
-                        <label>Contact Number</label>
-                        <input type="text" name="contact_number" maxlength="50" value="<?php echo e($bookingOld["contact_number"] ?? ""); ?>" required>
+                        <label for="contact_number">Contact number</label>
+                        <input type="tel" name="contact_number" id="contact_number" autocomplete="tel" placeholder="09XX XXX XXXX" maxlength="50" value="<?php echo e($bookingOld["contact_number"] ?? ""); ?>" required>
                     </div>
                 </div>
 
-                <label>Address</label>
-                <textarea name="address" required><?php echo e($bookingOld["address"] ?? ""); ?></textarea>
+                <label for="address">Address</label>
+                <textarea name="address" id="address" autocomplete="street-address" placeholder="Street, city or municipality, province" required><?php echo e($bookingOld["address"] ?? ""); ?></textarea>
 
-                <h3>Room Details</h3>
+                <h3><span class="step-number">02</span> Your guest's stay</h3>
 
                 <div class="selected-room-box">
                     <p><b>Selected Room Type:</b> <?php echo e($selectedRoomLabel); ?></p>
@@ -455,25 +447,26 @@ $recentTransactions = mysqli_query($conn, "
                     <p><b>Rate:</b> <?php echo money($selectedRoom["room_rate"]); ?> / night</p>
                 </div>
 
-                <label>Number of Nights</label>
+                <div class="form-row stay-details"><div>
+                <label for="hours">Number of nights</label>
                 <input type="number" name="hours" id="hours" min="1" max="365" step="1" value="<?php echo e($bookingOld["hours"] ?? "1"); ?>" required oninput="computeTotal()">
-
-                <h3>Payment</h3>
-
-                <label>Payment Method</label>
-                <select name="payment_method" required>
+                </div><div>
+                <label for="payment_method">Payment method</label>
+                <select name="payment_method" id="payment_method" required>
                     <option value="Cash" <?php if (($bookingOld["payment_method"] ?? "Cash") === "Cash") echo "selected"; ?>>Cash</option>
                     <option value="GCash" <?php if (($bookingOld["payment_method"] ?? "") === "GCash") echo "selected"; ?>>GCash</option>
                 </select>
+                </div></div>
 
                 <div class="billing-preview">
-                    <h3>Billing Preview</h3>
-                    <p>Room Rate: ₱<span id="preview_rate"><?php echo number_format($selectedRoom["room_rate"], 2); ?></span> / night</p>
-                    <p>Room Charge / Stay: ₱<span id="preview_room_charge">0.00</span></p>
-                    <h2>Total: ₱<span id="preview_total">0.00</span></h2>
+                    <h3>STAY SUMMARY</h3>
+                    <p><span>Rate per night</span><span>₱<span id="preview_rate"><?php echo number_format($selectedRoom["room_rate"], 2); ?></span></span></p>
+                    <p><span>Room charge</span><span>₱<span id="preview_room_charge">0.00</span></span></p>
+                    <h2 class="billing-total"><span class="total-label">Total amount</span><span>₱<span id="preview_total">0.00</span></span></h2>
                 </div>
 
-                <button type="submit">Save and Generate Receipt</button>
+                <button type="submit">Save and Generate Receipt <?php echo ui_icon('arrow'); ?></button>
+                <small class="form-note center">The room will be marked occupied once the booking is saved.</small>
 
             </form>
 
@@ -482,6 +475,7 @@ $recentTransactions = mysqli_query($conn, "
 
 </section>
 
+</main>
 <?php render_footer(); ?>
 
 <script>
@@ -499,8 +493,9 @@ function computeTotal() {
     var roomCharge = rate * nights;
     var total = roomCharge;
 
-    document.getElementById("preview_room_charge").textContent = roomCharge.toFixed(2);
-    document.getElementById("preview_total").textContent = total.toFixed(2);
+    var amountFormat = new Intl.NumberFormat("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById("preview_room_charge").textContent = amountFormat.format(roomCharge);
+    document.getElementById("preview_total").textContent = amountFormat.format(total);
 }
 computeTotal();
 </script>

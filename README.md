@@ -6,6 +6,8 @@ PHP hotel front desk application. Staff sign in at `login.php` or `staff_login.p
 
 Back up the current website files, then upload the updated contents of `htdocs/` to the hosting account's `htdocs/` directory, keeping the existing room images. Upload the PHP files together because the management forms and handlers share session and CSRF helpers. Sign out and back in, or reload open forms after uploading.
 
+The redesigned interface also needs `style.css`, `auth.css`, `portals.css`, `ui.js`, and `auth.js`. Deploy these assets with the PHP pages so the mobile menu, password controls, and responsive layouts work. The interface uses the hotel's existing photograph and displays illustrated room placeholders until actual room photos are uploaded through Room Management.
+
 The existing database schema and account records remain compatible. **Do not import `database/schema.sql` over your live database.** It is a schema-only copy for a new, empty development database; it contains no guest records or accounts. No database migration is required for these fixes.
 
 ## Local development
