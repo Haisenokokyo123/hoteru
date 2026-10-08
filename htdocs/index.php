@@ -124,6 +124,9 @@ while ($room = mysqli_fetch_assoc($roomsQuery)) {
 }
 
 $displayGroups = array_values($roomGroups);
+$occupancyPercent = $totalRooms ? (int) round(count($occupiedRooms) / $totalRooms * 100) : 0;
+$availablePercent = $totalRooms ? count($availableRooms) / $totalRooms * 100 : 0;
+$staffHeroPhoto = hotel_photo('pic2') ?: 'hoteru.png';
 
 $todayRevenueQuery = mysqli_query($conn, "
     SELECT SUM(total_amount) AS total FROM reservations
@@ -160,30 +163,57 @@ $recentTransactions = mysqli_query($conn, "
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bongabong View Hotel System</title>
     <link rel="stylesheet" href="style.css?v=20261008">
+    <link rel="stylesheet" href="staff.css?v=<?php echo filemtime(__DIR__ . '/staff.css'); ?>">
+    <script src="staff.js?v=<?php echo filemtime(__DIR__ . '/staff.js'); ?>" defer></script>
 </head>
-<body>
+<body class="staff-page">
 
 <?php render_navbar(); ?>
 
 <main class="frontdesk-main" id="main-content">
 <div class="context-row">
-    <span>Hotel operations <span aria-hidden="true">&nbsp; / &nbsp;</span> Overview</span>
+    <span>Hotel operations <span aria-hidden="true">&nbsp; / &nbsp;</span> Front desk</span>
     <span><?php echo ui_icon('clock'); ?><?php echo e(date('l, d F Y')); ?></span>
 </div>
-<section class="frontdesk-hero" aria-labelledby="dashboard-title">
-    <div class="hero-copy">
+<section class="frontdesk-hero staff-hero" aria-labelledby="dashboard-title">
+    <div class="staff-hero-scene" aria-hidden="true">
+        <img class="staff-hero-image" src="<?php echo e($staffHeroPhoto); ?>" alt="" fetchpriority="high">
+    </div>
+    <div class="staff-hero-layout">
+    <div class="hero-copy" data-staff-reveal>
         <p class="eyebrow">WELCOME BACK, <?php echo e($_SESSION['name'] ?? 'OUR TEAM'); ?></p>
-        <h1 id="dashboard-title">Exceptional stays.<br><em>Seamless days.</em></h1>
-        <p class="hero-description">A thoughtful welcome begins here. Your rooms, guests, and daily details, all in one place.</p>
+        <h1 id="dashboard-title">A thoughtful welcome.<br><em>Every single stay.</em></h1>
+        <p class="hero-description">A little care makes all the difference. Make room for your next arrival, and take care of every detail.</p>
         <div class="hero-buttons">
             <a href="#rooms" class="primary-btn"><?php echo ui_icon('plus'); ?>Create a booking</a>
             <a href="transactions.php" class="text-link">View transactions <?php echo ui_icon('arrow'); ?></a>
         </div>
     </div>
-    <figure class="hero-photo">
-        <img src="hoteru.png" alt="The Bongabong View Hotel exterior" fetchpriority="high">
-        <figcaption><span><small>YOUR PLACE IN BONGABONG</small>A little closer to home.</span><?php echo ui_icon('location'); ?></figcaption>
-    </figure>
+    <aside class="staff-hero-aside" aria-label="Current room availability" data-staff-reveal>
+        <div class="staff-availability-panel">
+            <p class="staff-panel-kicker">The hotel, at a glance</p>
+            <div class="staff-availability-main">
+                <div class="staff-occupancy-ring">
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <circle class="staff-ring-track" cx="60" cy="60" r="50" fill="none" stroke-width="4" />
+                        <circle class="staff-ring-progress" cx="60" cy="60" r="50" fill="none" stroke-width="4" pathLength="100" stroke-dasharray="100" style="stroke-dashoffset: <?php echo 100 - $occupancyPercent; ?>" />
+                    </svg>
+                    <div class="staff-ring-value"><strong><?php echo $occupancyPercent; ?>%</strong><small>occupied</small></div>
+                </div>
+                <div class="staff-availability-copy">
+                    <strong><?php echo count($availableRooms); ?></strong>
+                    <span><?php echo count($availableRooms) === 1 ? 'room available' : 'rooms available'; ?></span>
+                </div>
+            </div>
+            <div class="staff-availability-track" aria-hidden="true"><span style="width: <?php echo $availablePercent; ?>%"></span></div>
+            <div class="staff-availability-footer"><span><?php echo count($occupiedRooms); ?> occupied</span><span><?php echo $totalRooms; ?> rooms in total</span></div>
+        </div>
+    </aside>
+    </div>
+    <div class="staff-hero-bottom">
+        <span><?php echo ui_icon('location'); ?>Bongabong, Oriental Mindoro</span>
+        <span class="staff-hero-signature">Hospitality, thoughtfully managed.</span>
+    </div>
 </section>
 
 <?php if (isset($_GET["checkout"]) && $_GET["checkout"] == "success") { ?>
@@ -203,33 +233,33 @@ $recentTransactions = mysqli_query($conn, "
 <?php } ?>
 
 <section class="dashboard" aria-label="Today at a glance">
-    <div class="dash-card">
-        <div class="stat-topline">Total rooms <?php echo ui_icon('grid'); ?></div>
+    <div class="dash-card" data-staff-reveal>
+        <div class="stat-topline">Total rooms <span class="staff-stat-icon"><?php echo ui_icon('grid'); ?></span></div>
         <h2><?php echo $totalRooms; ?></h2>
         <span class="stat-caption">Active in your property</span>
     </div>
 
-    <div class="dash-card">
-        <div class="stat-topline">Available rooms <?php echo ui_icon('key'); ?></div>
+    <div class="dash-card" data-staff-reveal>
+        <div class="stat-topline">Available rooms <span class="staff-stat-icon"><?php echo ui_icon('key'); ?></span></div>
         <h2><?php echo count($availableRooms); ?></h2>
         <span class="stat-caption positive">Ready for a warm welcome</span>
     </div>
 
-    <div class="dash-card">
-        <div class="stat-topline">Occupied rooms <?php echo ui_icon('bed'); ?></div>
+    <div class="dash-card" data-staff-reveal>
+        <div class="stat-topline">Occupied rooms <span class="staff-stat-icon"><?php echo ui_icon('bed'); ?></span></div>
         <h2><?php echo count($occupiedRooms); ?></h2>
-        <span class="stat-caption"><?php echo $totalRooms ? round(count($occupiedRooms) / $totalRooms * 100) : 0; ?>% of active rooms</span>
+        <span class="stat-caption"><?php echo $occupancyPercent; ?>% of active rooms</span>
     </div>
 
-    <div class="dash-card">
-        <div class="stat-topline">Today's revenue <?php echo ui_icon('chart'); ?></div>
+    <div class="dash-card" data-staff-reveal>
+        <div class="stat-topline">Today's revenue <span class="staff-stat-icon"><?php echo ui_icon('chart'); ?></span></div>
         <h2><?php echo money($todayRevenue); ?></h2>
         <span class="stat-caption">Recorded bookings today</span>
     </div>
 </section>
 
 <section class="rooms-section" id="rooms">
-    <div class="section-header-row">
+    <div class="section-header-row" data-staff-reveal>
         <div><p class="eyebrow">ROOMS &amp; AVAILABILITY</p><h2 class="section-title">Find the right stay.</h2><p class="section-description">Choose a room category to welcome your next guest.</p></div>
         <a href="rooms.php" class="small-action-link">Manage rooms <?php echo ui_icon('arrow'); ?></a>
     </div>
@@ -249,7 +279,7 @@ $recentTransactions = mysqli_query($conn, "
                     $cardClass = $hasAvailable ? "room-card" : "room-card disabled-room-card";
                 ?>
 
-                <a href="index.php?room_id=<?php echo (int)$targetRoomId; ?>#booking" class="<?php echo $cardClass . ' ' . $selectedClass; ?>">
+                <a href="index.php?room_id=<?php echo (int)$targetRoomId; ?>#booking" class="<?php echo $cardClass . ' ' . $selectedClass; ?>" data-staff-reveal>
                     <?php render_room_visual($group); ?>
 
                     <div class="room-info">
@@ -282,7 +312,7 @@ $recentTransactions = mysqli_query($conn, "
     </div>
 </section>
 
-<section class="room-picker" aria-label="Choose a specific room">
+<section class="room-picker" aria-label="Choose a specific room" data-staff-reveal>
         <div class="room-picker-label"><?php echo ui_icon('key'); ?><div><strong>Looking for a specific room?</strong><small>Book a stay or manage a current guest.</small></div></div>
         <form action="index.php#booking" method="GET">
             <label for="selected_room" class="sr-only">Room</label>
@@ -302,7 +332,7 @@ $recentTransactions = mysqli_query($conn, "
 <section class="content-section">
 
     <div class="side-panel">
-        <div class="panel-box">
+        <div class="panel-box" data-staff-reveal>
             <div class="panel-header">
                 <div><p class="eyebrow">ARRIVALS</p><h2>Today's check-ins</h2></div>
                 <a href="transactions.php" class="small-action-link">View all</a>
@@ -331,7 +361,7 @@ $recentTransactions = mysqli_query($conn, "
             </table></div>
         </div>
 
-        <div class="panel-box" id="transactions">
+        <div class="panel-box" id="transactions" data-staff-reveal>
             <div class="panel-header">
                 <div><p class="eyebrow">THE LATEST</p><h2>Recent transactions</h2></div>
 
@@ -370,7 +400,7 @@ $recentTransactions = mysqli_query($conn, "
         </div>
     </div>
 
-    <div class="booking-box" id="booking">
+    <div class="booking-box" id="booking" data-staff-reveal>
         <?php if ($selectedRoom == null) { ?>
 
             <div class="empty-booking">
