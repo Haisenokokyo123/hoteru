@@ -6,9 +6,28 @@ PHP hotel front desk application. Staff sign in at `login.php` or `staff_login.p
 
 Back up the current website files, then upload the updated contents of `htdocs/` to the hosting account's `htdocs/` directory, keeping the existing room images. Upload the PHP files together because the management forms and handlers share session and CSRF helpers. Sign out and back in, or reload open forms after uploading.
 
-The redesigned interface also needs `style.css`, `auth.css`, `portals.css`, `ui.js`, and `auth.js`. Deploy these assets with the PHP pages so the mobile menu, password controls, and responsive layouts work. The interface uses the hotel's existing photograph and displays illustrated room placeholders until actual room photos are uploaded through Room Management.
+The redesigned interface also needs `style.css`, `auth.css`, `portals.css`, `ui.js`, and `auth.js`. Deploy these assets with the PHP pages so the mobile menu, password controls, and responsive layouts work. The guest page has a full-width photo hero and contact section, larger text, and scroll and hover motion that respects reduced-motion preferences.
 
 The existing database schema and account records remain compatible. **Do not import `database/schema.sql` over your live database.** It is a schema-only copy for a new, empty development database; it contains no guest records or accounts. No database migration is required for these fixes.
+
+## Hotel and room photographs
+
+Place the original `pic1`, `pic2`, and `pic3` photographs in `htdocs/images/hotel/`. The guest page uses `pic2` for its hero and displays the available photographs in a gallery. Until these files are supplied, the hero uses the existing `hoteru.png` and the gallery is omitted.
+
+Place room photographs in `htdocs/images/rooms/`, using these filenames (before the extension):
+
+| Room                | Filename                                    |
+| ------------------- | ------------------------------------------- |
+| 2 Single Bed Room 1 | `2singlebed1`                               |
+| 2 Single Bed Room 2 | `2singledbed2` (also accepts `2singlebed2`) |
+| Family Room 1       | `1family1`                                  |
+| Family Room 2       | `2family2`                                  |
+| Fan Room 1          | `1fan1`                                     |
+| Fan Room 2          | `2fan2`                                     |
+| King Room 1         | `kingroom1`                                 |
+| King Room 2         | `kingroom2`                                 |
+
+Supported extensions are `.webp`, `.jpg`, `.jpeg`, `.png`, and `.avif`, including uppercase extensions. The app also checks `htdocs/images/` and `htdocs/` for these named files. Photos uploaded through Room Management take priority; otherwise the named photo overrides the existing generic image. Without a matching file, the existing image or illustrated placeholder remains. This mapping works across guest browsing and staff room management without changing database records. The new original photographs are not included in this repository yet.
 
 ## Local development
 

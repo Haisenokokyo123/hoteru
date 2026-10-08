@@ -212,7 +212,48 @@ function reservation_status($row){
 
 
 
+function named_photo($stem, $folders) {
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $stem)) {
+        return null;
+    }
+    foreach ($folders as $folder) {
+        foreach (['webp', 'jpg', 'jpeg', 'png', 'avif', 'WEBP', 'JPG', 'JPEG', 'PNG', 'AVIF'] as $extension) {
+            $relative = ($folder !== '' ? $folder . '/' : '') . $stem . '.' . $extension;
+            if (is_file(__DIR__ . '/' . $relative)) return $relative;
+        }
+    }
+    return null;
+}
+
+function hotel_photo($stem) {
+    return named_photo($stem, ['images/hotel', 'images', '']);
+}
+
 function room_image($room){
+    $current = $room['image'] ?? '';
+    // Images uploaded through Room Management remain the most specific choice.
+    if (strpos($current, 'images/room_uploads/') === 0 && is_file(__DIR__ . '/' . $current)) {
+        return $current;
+    }
+    $name = strtolower(preg_replace('/[^a-z0-9]/i', '', $room['room_name'] ?? ''));
+    $photos = [
+        '2singlebedroom1' => ['2singlebed1'],
+        '2singlebed1' => ['2singlebed1'],
+        '2singlebedroom2' => ['2singledbed2', '2singlebed2'],
+        '2singlebed2' => ['2singledbed2', '2singlebed2'],
+        'familyroom1' => ['1family1'],
+        'familyroom2' => ['2family2'],
+        'fanroom1' => ['1fan1'],
+        'fanroom2' => ['2fan2'],
+        'kingroom1' => ['kingroom1'],
+        'kingroom2' => ['kingroom2'],
+        'kingsizebed1' => ['kingroom1'],
+        'kingsizebed2' => ['kingroom2'],
+    ];
+    foreach ($photos[$name] ?? [] as $stem) {
+        $photo = named_photo($stem, ['images/rooms', 'images', '']);
+        if ($photo !== null) return $photo;
+    }
 
 
     if(
@@ -237,6 +278,7 @@ function room_image($room){
 function ui_icon($name, $class = '') {
     $paths = [
         'arrow' => '<path d="M5 12h14m-6-6 6 6-6 6"/>',
+        'arrow-up' => '<path d="M6 18 18 6M6 6h12v12"/>',
         'bed' => '<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 15h18M5 9V5h14v4M7 9V7h4v2m2 0V7h4v2M3 18v2m18-2v2"/>',
         'check' => '<path d="m5 12 4 4L19 6"/>',
         'grid' => '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
@@ -293,7 +335,7 @@ function render_navbar($base = ''){
         </div>
     </div>
 </header>
-<script src="<?php echo e($base); ?>ui.js?v=20261008" defer></script>
+<script src="<?php echo e($base); ?>ui.js?v=20261008b" defer></script>
 <?php
 }
 
