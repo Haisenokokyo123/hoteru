@@ -25,8 +25,8 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Your Stay — Bongabong View Hotel</title>
-    <link rel="stylesheet" href="style.css?v=20261008b">
-    <link rel="stylesheet" href="portals.css?v=20261008b">
+    <link rel="stylesheet" href="style.css?v=20261009a">
+    <link rel="stylesheet" href="portals.css?v=20261009a">
 </head>
 <body class="portal-body portal-guest-page">
 <?php render_navbar(); ?>

@@ -335,7 +335,7 @@ function render_navbar($base = ''){
         </div>
     </div>
 </header>
-<script src="<?php echo e($base); ?>ui.js?v=20261008b" defer></script>
+<script src="<?php echo e($base); ?>ui.js?v=20261009a" defer></script>
 <?php
 }
 
