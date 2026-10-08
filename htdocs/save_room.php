@@ -1,165 +1,102 @@
 <?php
-include "config.php";
-require_login();
+require_once __DIR__ . '/config.php';
+require_staff();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: rooms.php');
+    exit;
+}
+require_csrf();
 
+function room_result($message) {
+    header('Location: rooms.php?msg=' . $message);
+    exit;
+}
+
+function upload_room_image($current_image = '') {
+    if (!isset($_FILES['image_file']) || $_FILES['image_file']['error'] === UPLOAD_ERR_NO_FILE) {
+        return $current_image !== '' ? $current_image : 'puno.png';
+    }
+    $file = $_FILES['image_file'];
+    if ($file['error'] !== UPLOAD_ERR_OK || $file['size'] > 5 * 1024 * 1024) {
+        return false;
+    }
+    $info = @getimagesize($file['tmp_name']);
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!$info || !isset($extensions[$info['mime']])) {
+        return false;
+    }
+    $upload_dir = __DIR__ . '/images/room_uploads';
+    if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true)) {
+        return false;
+    }
+    $relative_path = 'images/room_uploads/room_' . bin2hex(random_bytes(16)) . '.' . $extensions[$info['mime']];
+    return move_uploaded_file($file['tmp_name'], __DIR__ . '/' . $relative_path) ? $relative_path : false;
+}
+
+$action = $_POST['action'] ?? '';
+if (!in_array($action, ['add', 'update', 'enable', 'disable'], true)) {
+    room_result('invalid');
+}
+$room_id = filter_var($_POST['room_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if ($action !== 'add' && !$room_id) {
+    room_result('invalid');
+}
+if ($action === 'add' || $action === 'update') {
+    $name = is_string($_POST['room_name'] ?? null) ? trim($_POST['room_name']) : '';
+    $type = is_string($_POST['room_type'] ?? null) ? trim($_POST['room_type']) : '';
+    $rate = filter_var($_POST['room_rate'] ?? null, FILTER_VALIDATE_FLOAT);
+    if ($name === '' || strlen($name) > 50 || $type === '' || strlen($type) > 100 || $rate === false || $rate <= 0 || $rate > 99999999.99) {
+        room_result('invalid');
+    }
+}
 $conn = db_connect();
-
-function default_room_image($room_type) {
-    $type = strtolower($room_type);
-
-    if (strpos($type, "king") !== false) {
-        return "images/king.png";
-    }
-
-    if (
-        strpos($type, "2 single") !== false ||
-        strpos($type, "two single") !== false ||
-        strpos($type, "single bed") !== false
-    ) {
-        return "images/2.png";
-    }
-
-    if (strpos($type, "family") !== false) {
-        return "images/fam.png";
-    }
-
-    if (strpos($type, "fan") !== false) {
-        return "images/fan.png";
-    }
-
-    return "images/king.png";
-}
-
-function upload_room_image($field_name, $room_type, $current_image = "") {
-    if (!isset($_FILES[$field_name]) || $_FILES[$field_name]["error"] === UPLOAD_ERR_NO_FILE) {
-        if ($current_image !== "") {
-            return $current_image;
+try {
+    $conn->begin_transaction();
+    $room = null;
+    if ($action !== 'add') {
+        // Use the same row lock as booking to avoid disabling a newly booked room.
+        $stmt = $conn->prepare('SELECT * FROM rooms WHERE id = ? FOR UPDATE');
+        $stmt->bind_param('i', $room_id);
+        $stmt->execute();
+        $room = $stmt->get_result()->fetch_assoc();
+        if (!$room) {
+            $conn->rollback();
+            room_result('invalid');
         }
-
-        return default_room_image($room_type);
     }
-
-    if ($_FILES[$field_name]["error"] !== UPLOAD_ERR_OK) {
-        return false;
+    if ($action === 'disable') {
+        $stmt = $conn->prepare('SELECT id FROM reservations WHERE room_id = ? AND is_archived = 0 AND check_out > NOW() LIMIT 1 FOR UPDATE');
+        $stmt->bind_param('i', $room_id);
+        $stmt->execute();
+        if ($stmt->get_result()->fetch_assoc()) {
+            $conn->rollback();
+            room_result('occupied');
+        }
     }
-
-    $allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-    $originalName = $_FILES[$field_name]["name"];
-    $tmpName = $_FILES[$field_name]["tmp_name"];
-    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-    if (!in_array($extension, $allowedExtensions)) {
-        return false;
+    if ($action === 'enable' || $action === 'disable') {
+        $active = $action === 'enable' ? 1 : 0;
+        $stmt = $conn->prepare('UPDATE rooms SET is_active = ? WHERE id = ?');
+        $stmt->bind_param('ii', $active, $room_id);
+    } else {
+        $image = upload_room_image($room['image'] ?? '');
+        if ($image === false) {
+            $conn->rollback();
+            room_result('image_error');
+        }
+        if ($action === 'add') {
+            $stmt = $conn->prepare('INSERT INTO rooms (room_name, room_type, room_rate, image, is_active) VALUES (?, ?, ?, ?, 1)');
+            $stmt->bind_param('ssds', $name, $type, $rate, $image);
+        } else {
+            $stmt = $conn->prepare('UPDATE rooms SET room_name = ?, room_type = ?, room_rate = ?, image = ? WHERE id = ?');
+            $stmt->bind_param('ssdsi', $name, $type, $rate, $image, $room_id);
+        }
     }
-
-    $uploadDir = "images/room_uploads/";
-
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    $safeFileName = "room_" . time() . "_" . rand(1000, 9999) . "." . $extension;
-    $destination = $uploadDir . $safeFileName;
-
-    if (move_uploaded_file($tmpName, $destination)) {
-        return $destination;
-    }
-
-    return false;
+    $stmt->execute();
+    $conn->commit();
+    $messages = ['add' => 'added', 'update' => 'updated', 'enable' => 'enabled', 'disable' => 'disabled'];
+    room_result($messages[$action]);
+} catch (mysqli_sql_exception $e) {
+    $conn->rollback();
+    error_log('Room update failed: ' . $e->getMessage());
+    room_result('save_error');
 }
-
-if ($_SERVER["REQUEST_METHOD"] != "POST") {
-    header("Location: rooms.php");
-    exit();
-}
-
-$action = isset($_POST["action"]) ? $_POST["action"] : "";
-
-if ($action === "add") {
-    $room_name = mysqli_real_escape_string($conn, $_POST["room_name"]);
-    $room_type = mysqli_real_escape_string($conn, $_POST["room_type"]);
-    $room_rate = isset($_POST["room_rate"]) ? (float)$_POST["room_rate"] : 0;
-
-    if ($room_name === "" || $room_rate <= 0) {
-        header("Location: rooms.php?msg=invalid");
-        exit();
-    }
-
-    $image = upload_room_image("image_file", $room_type);
-
-    if ($image === false) {
-        header("Location: rooms.php?msg=image_error");
-        exit();
-    }
-
-    $image = mysqli_real_escape_string($conn, $image);
-
-    mysqli_query($conn, "
-        INSERT INTO rooms (room_name, room_type, room_rate, image, is_active)
-        VALUES ('$room_name', '$room_type', '$room_rate', '$image', 1)
-    ");
-
-    header("Location: rooms.php?msg=added");
-    exit();
-}
-
-if ($action === "update") {
-    $room_id = isset($_POST["room_id"]) ? (int)$_POST["room_id"] : 0;
-    $room_name = mysqli_real_escape_string($conn, $_POST["room_name"]);
-    $room_type = mysqli_real_escape_string($conn, $_POST["room_type"]);
-    $room_rate = isset($_POST["room_rate"]) ? (float)$_POST["room_rate"] : 0;
-    $current_image = isset($_POST["current_image"]) ? trim($_POST["current_image"]) : "";
-
-    if ($room_id <= 0 || $room_name === "" || $room_rate <= 0) {
-        header("Location: rooms.php?msg=invalid");
-        exit();
-    }
-
-    $image = upload_room_image("image_file", $room_type, $current_image);
-
-    if ($image === false) {
-        header("Location: rooms.php?msg=image_error");
-        exit();
-    }
-
-    $image = mysqli_real_escape_string($conn, $image);
-
-    mysqli_query($conn, "
-        UPDATE rooms
-        SET room_name = '$room_name',
-            room_type = '$room_type',
-            room_rate = '$room_rate',
-            image = '$image'
-        WHERE id = '$room_id'
-    ");
-
-    header("Location: rooms.php?msg=updated");
-    exit();
-}
-
-if ($action === "disable") {
-    $room_id = isset($_POST["room_id"]) ? (int)$_POST["room_id"] : 0;
-
-    $activeReservation = get_active_reservation($conn, $room_id);
-
-    if ($activeReservation !== null) {
-        header("Location: rooms.php?msg=occupied");
-        exit();
-    }
-
-    mysqli_query($conn, "UPDATE rooms SET is_active = 0 WHERE id = '$room_id'");
-    header("Location: rooms.php?msg=disabled");
-    exit();
-}
-
-if ($action === "enable") {
-    $room_id = isset($_POST["room_id"]) ? (int)$_POST["room_id"] : 0;
-
-    mysqli_query($conn, "UPDATE rooms SET is_active = 1 WHERE id = '$room_id'");
-    header("Location: rooms.php?msg=enabled");
-    exit();
-}
-
-header("Location: rooms.php");
-exit();
-?>

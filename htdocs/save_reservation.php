@@ -1,281 +1,73 @@
 <?php
+require_once __DIR__ . '/config.php';
+require_staff();
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: index.php');
+    exit;
+}
+require_csrf();
 
-include "config.php";
+function booking_failed($message, $room_id, $values) {
+    $_SESSION['booking_error'] = $message;
+    $_SESSION['booking_old'] = $values;
+    header('Location: index.php?room_id=' . $room_id . '#booking');
+    exit;
+}
 
-require_login();
+$values = [];
+foreach (['full_name', 'contact_number', 'address', 'hours', 'payment_method'] as $field) {
+    $values[$field] = is_string($_POST[$field] ?? null) ? trim($_POST[$field]) : '';
+}
+$room_id = filter_var($_POST['room_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
+$nights = filter_var($values['hours'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 365]]);
+if (!$room_id || !$nights || $values['full_name'] === '' || $values['contact_number'] === '' || $values['address'] === '') {
+    booking_failed('Choose a room, enter the guest details, and select 1 to 365 whole nights.', $room_id, $values);
+}
+if (strlen($values['full_name']) > 100 || strlen($values['contact_number']) > 50 || strlen($values['address']) > 65535 || !in_array($values['payment_method'], ['Cash', 'GCash'], true)) {
+    booking_failed('Check the guest details and choose Cash or GCash as the payment method.', $room_id, $values);
+}
 
 $conn = db_connect();
+try {
+    $conn->begin_transaction();
+    // Lock the room so simultaneous submissions cannot both reserve it.
+    $stmt = $conn->prepare('SELECT room_rate, is_active FROM rooms WHERE id = ? FOR UPDATE');
+    $stmt->bind_param('i', $room_id);
+    $stmt->execute();
+    $room = $stmt->get_result()->fetch_assoc();
+    if (!$room || !(int)$room['is_active']) {
+        $conn->rollback();
+        booking_failed('This room is unavailable. Please choose another room.', $room_id, $values);
+    }
 
+    $now = new DateTimeImmutable();
+    $check_in = $now->format('Y-m-d H:i:s');
+    $check_out = $now->modify('+' . $nights . ' days')->format('Y-m-d H:i:s');
+    $stmt = $conn->prepare('SELECT id FROM reservations WHERE room_id = ? AND is_archived = 0 AND check_in < ? AND check_out > ? LIMIT 1 FOR UPDATE');
+    $stmt->bind_param('iss', $room_id, $check_out, $check_in);
+    $stmt->execute();
+    if ($stmt->get_result()->fetch_assoc()) {
+        $conn->rollback();
+        booking_failed('This room already has a booking during the requested stay. Please choose another room.', $room_id, $values);
+    }
 
-
-if($_SERVER["REQUEST_METHOD"] != "POST"){
-
-    header("Location:index.php");
-    exit();
-
+    $total = round((float)$room['room_rate'] * $nights, 2);
+    if ($total <= 0 || $total > 99999999.99) {
+        $conn->rollback();
+        booking_failed('The room rate or stay length produces an invalid total.', $room_id, $values);
+    }
+    // The supplied database stores the number of nights in its legacy hours column.
+    $stmt = $conn->prepare("INSERT INTO reservations (room_id, full_name, contact_number, address, id_number, hours, extra_bed, food, damages, payment_method, total_amount, check_in, check_out, is_archived) VALUES (?, ?, ?, ?, '', ?, 0, 0, 0, ?, ?, ?, ?, 0)");
+    $stmt->bind_param('isssisdss', $room_id, $values['full_name'], $values['contact_number'], $values['address'], $nights, $values['payment_method'], $total, $check_in, $check_out);
+    $stmt->execute();
+    $reservation_id = $conn->insert_id;
+    $conn->commit();
+    unset($_SESSION['booking_error'], $_SESSION['booking_old']);
+    header('Location: receipt.php?id=' . $reservation_id);
+    exit;
+} catch (mysqli_sql_exception $e) {
+    $conn->rollback();
+    error_log('Booking failed: ' . $e->getMessage());
+    booking_failed('The booking could not be saved. Please try again.', $room_id, $values);
 }
-
-
-
-$room_id = isset($_POST["room_id"]) ? (int)$_POST["room_id"] : 0;
-
-
-$full_name = mysqli_real_escape_string(
-    $conn,
-    $_POST["full_name"] ?? ""
-);
-
-
-$contact_number = mysqli_real_escape_string(
-    $conn,
-    $_POST["contact_number"] ?? ""
-);
-
-
-$address = mysqli_real_escape_string(
-    $conn,
-    $_POST["address"] ?? ""
-);
-
-
-$nights = isset($_POST["hours"]) ? (int)$_POST["hours"] : 0;
-
-
-$payment_method = mysqli_real_escape_string(
-    $conn,
-    $_POST["payment_method"] ?? ""
-);
-
-
-
-if($room_id <= 0 || $nights <= 0){
-
-    die("Invalid booking details.");
-
-}
-
-
-
-
-
-// Check if room exists
-
-$roomQuery = mysqli_query(
-    $conn,
-    "
-    SELECT *
-    FROM rooms
-    WHERE id='$room_id'
-    AND is_active=1
-    "
-);
-
-
-
-if(!$roomQuery){
-
-    die(mysqli_error($conn));
-
-}
-
-
-
-if(mysqli_num_rows($roomQuery)==0){
-
-    die("Room not found or disabled.");
-
-}
-
-
-
-
-$room = mysqli_fetch_assoc($roomQuery);
-
-
-
-
-
-// Check if room is currently occupied
-
-$checkRoom = mysqli_query(
-    $conn,
-    "
-    SELECT *
-    FROM reservations
-    WHERE room_id='$room_id'
-    AND is_archived=0
-    AND NOW() BETWEEN check_in AND check_out
-    "
-);
-
-
-
-if(!$checkRoom){
-
-    die(mysqli_error($conn));
-
-}
-
-
-
-if(mysqli_num_rows($checkRoom)>0){
-
-    echo "
-
-    <script>
-
-    alert('This room is already occupied.');
-
-    window.location='index.php';
-
-    </script>
-
-    ";
-
-    exit();
-
-}
-
-
-
-
-
-
-$room_rate = (float)$room["room_rate"];
-
-
-$total_amount = $room_rate * $nights;
-
-
-
-$check_in = date("Y-m-d H:i:s");
-
-
-$check_out = date(
-    "Y-m-d H:i:s",
-    strtotime("+".$nights." days")
-);
-
-
-
-
-
-$id_number = "";
-
-$extra_bed = 0;
-
-$food = 0;
-
-$damages = 0;
-
-
-
-
-
-$sql = "
-
-INSERT INTO reservations
-
-(
-
-room_id,
-
-full_name,
-
-contact_number,
-
-address,
-
-id_number,
-
-hours,
-
-extra_bed,
-
-food,
-
-damages,
-
-payment_method,
-
-total_amount,
-
-check_in,
-
-check_out,
-
-is_archived
-
-)
-
-
-VALUES
-
-(
-
-'$room_id',
-
-'$full_name',
-
-'$contact_number',
-
-'$address',
-
-'$id_number',
-
-'$nights',
-
-'$extra_bed',
-
-'$food',
-
-'$damages',
-
-'$payment_method',
-
-'$total_amount',
-
-'$check_in',
-
-'$check_out',
-
-0
-
-)
-
-";
-
-
-
-
-
-$result = mysqli_query($conn,$sql);
-
-
-
-if(!$result){
-
-    die("DATABASE ERROR: " . mysqli_error($conn));
-
-}
-
-
-
-
-
-$reservation_id = mysqli_insert_id($conn);
-
-
-
-header(
-    "Location: receipt.php?id=".$reservation_id
-);
-
-
-exit();
-
-
-?>

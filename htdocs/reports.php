@@ -1,6 +1,6 @@
 <?php
 include "config.php";
-require_login();
+require_staff();
 
 $conn = db_connect();
 
@@ -32,10 +32,13 @@ $activeRoomsQuery = mysqli_query($conn, "SELECT COUNT(*) AS total FROM rooms WHE
 $activeRooms = mysqli_fetch_assoc($activeRoomsQuery)["total"];
 
 $occupiedRoomsQuery = mysqli_query($conn, "
-    SELECT COUNT(DISTINCT room_id) AS total
+    SELECT COUNT(DISTINCT reservations.room_id) AS total
     FROM reservations
-    WHERE is_archived = 0
-    AND NOW() BETWEEN check_in AND check_out
+    INNER JOIN rooms ON reservations.room_id = rooms.id
+    WHERE reservations.is_archived = 0
+    AND rooms.is_active = 1
+    AND reservations.check_in <= NOW()
+    AND reservations.check_out > NOW()
 ");
 $occupiedRooms = mysqli_fetch_assoc($occupiedRoomsQuery)["total"];
 $availableRooms = $activeRooms - $occupiedRooms;
@@ -62,6 +65,8 @@ $roomTypeSales = mysqli_query($conn, "
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sales Reports - Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=100">
 </head>

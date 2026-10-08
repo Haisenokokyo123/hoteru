@@ -1,104 +1,23 @@
 <?php
+require_once __DIR__ . '/config.php';
+start_app_session();
 
-session_start();
-
-include "config.php";
-
-
-$error = "";
-
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-
-    $conn = db_connect();
-
-
-    $email = mysqli_real_escape_string(
-        $conn,
-        $_POST["email"]
-    );
-
-
-    $password = mysqli_real_escape_string(
-        $conn,
-        $_POST["password"]
-    );
-
-
-
-    $query = mysqli_query(
-        $conn,
-        "
-        SELECT *
-        FROM users
-        WHERE email='$email'
-        AND role='customer'
-        LIMIT 1
-        "
-    );
-
-
-
-    if ($query && mysqli_num_rows($query) > 0) {
-
-
-        $user = mysqli_fetch_assoc($query);
-
-
-
-        /*
-        Temporary password checking.
-        Later we will upgrade this
-        using password_hash()
-        */
-
-
-        if ($password == $user["password"]) {
-
-
-
-            $_SESSION["logged_in"] = true;
-
-            $_SESSION["user_id"] = $user["id"];
-
-            $_SESSION["name"] = $user["name"];
-
-            $_SESSION["role"] = "customer";
-
-
-
-            header("Location: customer_home.php");
-
-            exit();
-
-
-
-        } else {
-
-
-            $error = "Incorrect password.";
-
-
-        }
-
-
-
-    } else {
-
-
-        $error = "Customer account not found.";
-
-
-    }
-
-
-
+if (isset($_SESSION['role'])) {
+    header('Location: ' . role_home($_SESSION['role']));
+    exit;
 }
 
-
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user = authenticate_user($_POST['email'] ?? '', $_POST['password'] ?? '', 'customer');
+    if ($user !== null) {
+        establish_user_session($user);
+        header('Location: ' . role_home($user['role']));
+        exit;
+    }
+    $error = 'Incorrect email or password.';
+}
 ?>
-
 
 <!DOCTYPE html>
 
@@ -146,7 +65,7 @@ Customer Login
 
 <div class="error-box">
 
-<?php echo $error; ?>
+<?php echo e($error); ?>
 
 </div>
 

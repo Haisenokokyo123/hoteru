@@ -2,15 +2,9 @@
 
 include "config.php";
 
-require_login();
+require_role("customer");
 
 
-if($_SESSION["role"] != "customer"){
-
-    header("Location: login.php");
-    exit();
-
-}
 
 
 $conn = db_connect();
@@ -59,14 +53,14 @@ Customer Booking Portal
 
 Welcome,
 
-<?php echo $_SESSION["name"]; ?>
+<?php echo e($_SESSION["name"]); ?>
 
 </h1>
 
 
 <p>
 
-Book your stay at Bongabong View Hotel
+Browse rooms at Bongabong View Hotel. To check availability and book your stay, contact our front desk at <a href="tel:09228125061">0922 812 5061</a>.
 
 </p>
 
@@ -81,7 +75,7 @@ Book your stay at Bongabong View Hotel
 
 <h2>
 
-Available Rooms
+Our Rooms
 
 </h2>
 
@@ -97,9 +91,9 @@ Available Rooms
 <div class="room-card">
 
 
-<img 
+<img
 
-src="<?php echo room_image($room); ?>"
+src="<?php echo e(room_image($room)); ?>"
 
 class="room-image"
 
@@ -110,7 +104,7 @@ class="room-image"
 
 <h3>
 
-<?php echo $room["room_name"]; ?>
+<?php echo e($room["room_name"]); ?>
 
 </h3>
 
@@ -119,7 +113,7 @@ class="room-image"
 
 Room Type:
 
-<?php echo $room["room_type"]; ?>
+<?php echo e($room["room_type"]); ?>
 
 </p>
 
@@ -135,16 +129,10 @@ Price:
 
 
 
-<a href="customer_booking.php?room_id=<?php echo $room["id"]; ?>">
-
-<button>
-
-Book Now
-
-</button>
-
-
-</a>
+<p>
+To book this room, call <a href="tel:09228125061">0922 812 5061</a>
+or visit the front desk at JP Rizal St. Bgy. Poblacion, Bongabong.
+</p>
 
 
 

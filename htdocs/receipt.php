@@ -1,6 +1,6 @@
 <?php
 include "config.php";
-require_login();
+require_staff();
 
 $conn = db_connect();
 
@@ -14,11 +14,16 @@ $result = mysqli_query($conn, "
 ");
 
 $row = $result ? mysqli_fetch_assoc($result) : null;
+if ($row === null) {
+    http_response_code(404);
+}
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Receipt - Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=1002">
 </head>
@@ -42,7 +47,12 @@ $row = $result ? mysqli_fetch_assoc($result) : null;
 
         <?php
             $nights = (int)$row["hours"];
-            $room_total = (float)$row["room_rate"] * $nights;
+            // Receipts reflect the amount charged when booked, even if room rates change.
+            $extra_bed = (float)($row["extra_bed"] ?? 0);
+            $food = (float)($row["food"] ?? 0);
+            $damages = (float)($row["damages"] ?? 0);
+            $room_total = (float)$row["total_amount"] - $extra_bed - $food - $damages;
+            $booked_rate = $nights > 0 ? $room_total / $nights : $room_total;
         ?>
 
         <div class="receipt">
@@ -69,7 +79,7 @@ $row = $result ? mysqli_fetch_assoc($result) : null;
 
             <p><b>Room:</b> <?php echo e($row["room_name"]); ?></p>
             <p><b>Room Type:</b> <?php echo e($row["room_type"]); ?></p>
-            <p><b>Rate:</b> <?php echo money($row["room_rate"]); ?> / night</p>
+            <p><b>Rate:</b> <?php echo money($booked_rate); ?> / night</p>
             <p><b>Number of Nights:</b> <?php echo $nights; ?></p>
             <p><b>Check In:</b> <?php echo e($row["check_in"]); ?></p>
             <p><b>Check Out:</b> <?php echo e($row["check_out"]); ?></p>
@@ -77,6 +87,15 @@ $row = $result ? mysqli_fetch_assoc($result) : null;
             <hr>
 
             <p><b>Room Total:</b> <?php echo money($room_total); ?></p>
+            <?php if ($extra_bed != 0) { ?>
+                <p><b>Extra Bed:</b> <?php echo money($extra_bed); ?></p>
+            <?php } ?>
+            <?php if ($food != 0) { ?>
+                <p><b>Food:</b> <?php echo money($food); ?></p>
+            <?php } ?>
+            <?php if ($damages != 0) { ?>
+                <p><b>Damages:</b> <?php echo money($damages); ?></p>
+            <?php } ?>
 
             <hr>
 

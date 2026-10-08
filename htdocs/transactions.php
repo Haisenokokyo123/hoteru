@@ -1,6 +1,6 @@
 <?php
 include "config.php";
-require_login();
+require_staff();
 
 $conn = db_connect();
 
@@ -57,6 +57,8 @@ $totalSales = $totalRow["sales"] ? $totalRow["sales"] : 0;
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Transaction History - Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=100">
 </head>
@@ -68,6 +70,7 @@ $totalSales = $totalRow["sales"] ? $totalRow["sales"] : 0;
     <div class="section-header-row">
         <h1 class="page-title">Transaction History</h1>
         <form action="clear_transactions.php" method="POST" class="clear-form" onsubmit="return confirm('Archive all completed transactions? Active occupied rooms will not be affected.');">
+            <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
             <input type="hidden" name="redirect" value="transactions.php?clear=success">
             <button type="submit" class="danger-btn">Archive Completed</button>
         </form>
@@ -128,13 +131,19 @@ $totalSales = $totalRow["sales"] ? $totalRow["sales"] : 0;
                     <?php $status = reservation_status($row); ?>
                     <tr>
                         <td><?php echo e($row["full_name"]); ?></td>
-                        <td><?php echo e($row["room_name"]); ?></td>
+                        <td>
+                            <?php if ($status === "Occupied") { ?>
+                                <a href="index.php?room_id=<?php echo (int)$row["room_id"]; ?>#booking"><?php echo e($row["room_name"]); ?></a>
+                            <?php } else { ?>
+                                <?php echo e($row["room_name"] ?? "Removed room"); ?>
+                            <?php } ?>
+                        </td>
                         <td><?php echo e($row["check_in"]); ?></td>
                         <td><?php echo e($row["check_out"]); ?></td>
                         <td><?php echo e($row["payment_method"]); ?></td>
                         <td><?php echo money($row["total_amount"]); ?></td>
                         <td>
-                            <span class="status-pill <?php echo $status == 'Active' ? 'status-available' : ($status == 'Archived' ? 'status-disabled' : 'status-neutral'); ?>">
+                            <span class="status-pill <?php echo $status === 'Occupied' ? 'status-occupied' : ($status === 'Archived' ? 'status-disabled' : ($status === 'Reserved' ? 'status-available' : 'status-neutral')); ?>">
                                 <?php echo e($status); ?>
                             </span>
                         </td>

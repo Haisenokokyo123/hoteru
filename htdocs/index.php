@@ -1,27 +1,18 @@
 <?php
 
-session_start();
-
 include "config.php";
-
-require_login();
-
-if(
-    $_SESSION["role"] != "staff" &&
-    $_SESSION["role"] != "admin"
-){
-
-    header("Location: login.php");
-    exit();
-
-}
+require_staff();
 
 $conn = db_connect();
 
 $selected_room_id = isset($_GET["room_id"]) ? (int)$_GET["room_id"] : 0;
+$bookingError = $_SESSION["booking_error"] ?? "";
+$bookingOld = $_SESSION["booking_old"] ?? [];
+unset($_SESSION["booking_error"], $_SESSION["booking_old"]);
 
 $availableRooms = [];
 $occupiedRooms = [];
+$allRooms = [];
 $totalRooms = 0;
 $selectedRoom = null;
 $selectedReservation = null;
@@ -84,6 +75,7 @@ while ($room = mysqli_fetch_assoc($roomsQuery)) {
     $room_id = (int)$room["id"];
     $activeReservation = get_active_reservation($conn, $room_id);
     $isOccupied = $activeReservation !== null;
+    $allRooms[] = ["room" => $room, "reservation" => $activeReservation];
 
     if ($isOccupied) {
         $occupiedRooms[] = $room;
@@ -164,6 +156,8 @@ $recentTransactions = mysqli_query($conn, "
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bongabong View Hotel System</title>
     <link rel="stylesheet" href="style.css?v=1002">
 </head>
@@ -188,7 +182,15 @@ $recentTransactions = mysqli_query($conn, "
 <?php } ?>
 
 <?php if (isset($_GET["clear"]) && $_GET["clear"] == "success") { ?>
-    <div class="page-alert success-box">Completed transactions were cleared successfully.</div>
+    <div class="page-alert success-box">Completed transactions were archived successfully.</div>
+<?php } ?>
+
+<?php if ($bookingError !== "") { ?>
+    <div class="page-alert error-box" role="alert"><?php echo e($bookingError); ?></div>
+<?php } ?>
+
+<?php if ($selected_room_id > 0 && $selectedRoom === null) { ?>
+    <div class="page-alert error-box" role="alert">This room is unavailable. Select another room below.</div>
 <?php } ?>
 
 <section class="dashboard">
@@ -265,7 +267,7 @@ $recentTransactions = mysqli_query($conn, "
                         <?php if ($group["available_count"] > 0) { ?>
                             <p class="room-description">Click to book this room type</p>
                         <?php } else { ?>
-                            <p class="room-description">No available room in this category</p>
+                            <p class="room-description">View guest details or check out a guest</p>
                         <?php } ?>
                     </div>
                 </a>
@@ -273,6 +275,25 @@ $recentTransactions = mysqli_query($conn, "
         <?php } else { ?>
             <div class="empty-card">No room types found.</div>
         <?php } ?>
+    </div>
+</section>
+
+<section class="rooms-section">
+    <div class="panel-box">
+        <h2>Choose a Specific Room</h2>
+        <form action="index.php#booking" method="GET" class="filter-bar">
+            <label for="selected_room">Room</label>
+            <select name="room_id" id="selected_room" required>
+                <option value="">Select an available or occupied room</option>
+                <?php foreach ($allRooms as $entry) { ?>
+                    <?php $room = $entry["room"]; ?>
+                    <option value="<?php echo (int)$room["id"]; ?>" <?php if ($selected_room_id === (int)$room["id"]) echo "selected"; ?>>
+                        <?php echo e($room["room_name"] . " — " . ($entry["reservation"] === null ? "Available" : "Occupied")); ?>
+                    </option>
+                <?php } ?>
+            </select>
+            <button type="submit">Open Room</button>
+        </form>
     </div>
 </section>
 
@@ -320,9 +341,10 @@ $recentTransactions = mysqli_query($conn, "
             <div class="panel-header">
                 <h2>Recent Transactions</h2>
 
-                <form action="clear_transactions.php" method="POST" class="clear-form" onsubmit="return confirm('Clear all completed transactions? Active occupied rooms will not be affected.');">
+                <form action="clear_transactions.php" method="POST" class="clear-form" onsubmit="return confirm('Archive all completed transactions? Active occupied rooms will not be affected.');">
+                    <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                     <input type="hidden" name="redirect" value="index.php?clear=success#transactions">
-                    <button type="submit" class="danger-btn">Clear</button>
+                    <button type="submit" class="danger-btn">Archive Completed</button>
                 </form>
             </div>
 
@@ -376,6 +398,7 @@ $recentTransactions = mysqli_query($conn, "
 
             <div class="occupied-details">
                 <p><b>Status:</b> Occupied</p>
+                <p><b>Room:</b> <?php echo e($selectedRoom["room_name"]); ?></p>
                 <p><b>Guest:</b> <?php echo e($selectedReservation["full_name"]); ?></p>
                 <p><b>Contact:</b> <?php echo e($selectedReservation["contact_number"]); ?></p>
                 <p><b>Address:</b> <?php echo e($selectedReservation["address"]); ?></p>
@@ -389,6 +412,7 @@ $recentTransactions = mysqli_query($conn, "
                 <a class="receipt-link" href="receipt.php?id=<?php echo (int)$selectedReservation["id"]; ?>">View Receipt</a>
 
                 <form action="checkout_guest.php" method="POST" onsubmit="return confirm('Check out this guest now? This will make the room available immediately.');">
+                    <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                     <input type="hidden" name="reservation_id" value="<?php echo (int)$selectedReservation["id"]; ?>">
                     <button type="submit" class="checkout-btn">Check Out Guest</button>
                 </form>
@@ -402,6 +426,7 @@ $recentTransactions = mysqli_query($conn, "
 
             <form action="save_reservation.php" method="POST">
 
+                <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                 <input type="hidden" name="room_id" id="room_id" value="<?php echo (int)$selectedRoom["id"]; ?>">
                 <input type="hidden" id="room_rate" value="<?php echo e($selectedRoom["room_rate"]); ?>">
 
@@ -410,17 +435,17 @@ $recentTransactions = mysqli_query($conn, "
                 <div class="form-row">
                     <div>
                         <label>Full Name</label>
-                        <input type="text" name="full_name" required>
+                        <input type="text" name="full_name" maxlength="100" value="<?php echo e($bookingOld["full_name"] ?? ""); ?>" required>
                     </div>
 
                     <div>
                         <label>Contact Number</label>
-                        <input type="text" name="contact_number" required>
+                        <input type="text" name="contact_number" maxlength="50" value="<?php echo e($bookingOld["contact_number"] ?? ""); ?>" required>
                     </div>
                 </div>
 
                 <label>Address</label>
-                <textarea name="address" required></textarea>
+                <textarea name="address" required><?php echo e($bookingOld["address"] ?? ""); ?></textarea>
 
                 <h3>Room Details</h3>
 
@@ -431,14 +456,14 @@ $recentTransactions = mysqli_query($conn, "
                 </div>
 
                 <label>Number of Nights</label>
-                <input type="number" name="hours" id="hours" min="1" required oninput="computeTotal()">
+                <input type="number" name="hours" id="hours" min="1" max="365" step="1" value="<?php echo e($bookingOld["hours"] ?? "1"); ?>" required oninput="computeTotal()">
 
                 <h3>Payment</h3>
 
                 <label>Payment Method</label>
                 <select name="payment_method" required>
-                    <option value="Cash">Cash</option>
-                    <option value="GCash">GCash</option>
+                    <option value="Cash" <?php if (($bookingOld["payment_method"] ?? "Cash") === "Cash") echo "selected"; ?>>Cash</option>
+                    <option value="GCash" <?php if (($bookingOld["payment_method"] ?? "") === "GCash") echo "selected"; ?>>GCash</option>
                 </select>
 
                 <div class="billing-preview">
@@ -468,14 +493,16 @@ function computeTotal() {
     }
 
     var rate = parseFloat(rateInput.value) || 0;
-    var nights = parseFloat(document.getElementById("hours").value) || 0;
+    var nights = parseInt(document.getElementById("hours").value, 10) || 0;
+    nights = Math.max(0, nights);
 
     var roomCharge = rate * nights;
     var total = roomCharge;
 
-    document.getElementById("preview_room_charge").innerHTML = roomCharge.toFixed(2);
-    document.getElementById("preview_total").innerHTML = total.toFixed(2);
+    document.getElementById("preview_room_charge").textContent = roomCharge.toFixed(2);
+    document.getElementById("preview_total").textContent = total.toFixed(2);
 }
+computeTotal();
 </script>
 
 </body>

@@ -1,39 +1,11 @@
 <?php
-
-session_start();
-
-if (!isset($_SESSION["role"])) {
-
-    header("Location: ../login.php");
-    exit();
-
+require_once dirname(__DIR__) . '/config.php';
+start_app_session();
+if (!isset($_SESSION['role'])) {
+    header('Location: ../login.php');
+    exit;
 }
-
-
-if ($_SESSION["role"] != "staff") {
-
-    header("Location: ../customer/home.php");
-    exit();
-
-}
-
-?>
-<?php
-
-session_start();
-
-include "../config.php";
-
-
-// CHECK ADMIN ACCESS
-
-if(!isset($_SESSION["role"]) || $_SESSION["role"] != "admin"){
-
-    header("Location: ../login.php");
-    exit();
-
-}
-
+require_role('admin');
 
 $conn = db_connect();
 
@@ -119,13 +91,13 @@ Dashboard
 </a>
 
 
-<a href="create_staff.php">
-Create Staff
+<a href="../index.php">
+Manage Hotel
 </a>
 
 
-<a href="manage_users.php">
-Users
+<a href="../rooms.php">
+Rooms
 </a>
 
 
@@ -155,7 +127,7 @@ Admin Dashboard
 
 <p>
 Welcome,
-<?php echo $_SESSION["name"]; ?>
+<?php echo e($_SESSION["name"]); ?>
 </p>
 
 
@@ -227,10 +199,10 @@ Admin Functions
 <div class="admin-buttons">
 
 
-<a href="create_staff.php">
+<a href="../index.php">
 
 <button>
-Create Staff Account
+Manage Hotel
 </button>
 
 </a>
@@ -238,10 +210,10 @@ Create Staff Account
 
 
 
-<a href="manage_users.php">
+<a href="../rooms.php">
 
 <button>
-Manage Users
+Manage Rooms
 </button>
 
 </a>

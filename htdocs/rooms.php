@@ -1,6 +1,6 @@
 <?php
 include "config.php";
-require_login();
+require_staff();
 
 $conn = db_connect();
 
@@ -36,11 +36,14 @@ $whereSql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
 $rooms = mysqli_query($conn, "SELECT * FROM rooms $whereSql ORDER BY is_active DESC, id ASC");
 
 $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
+$isError = in_array($msg, ["occupied", "invalid", "image_error", "save_error"], true);
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Room Management - Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=500">
 </head>
@@ -55,15 +58,16 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
     </div>
 
     <?php if ($msg !== "") { ?>
-        <div class="success-box page-alert">
+        <div class="<?php echo $isError ? "error-box" : "success-box"; ?> page-alert" role="status">
             <?php
                 if ($msg === "added") echo "Room added successfully.";
                 elseif ($msg === "updated") echo "Room updated successfully.";
                 elseif ($msg === "disabled") echo "Room disabled successfully.";
                 elseif ($msg === "enabled") echo "Room enabled successfully.";
-                elseif ($msg === "occupied") echo "This room is currently occupied and cannot be disabled.";
+                elseif ($msg === "occupied") echo "This room has a current or upcoming booking and cannot be disabled.";
                 elseif ($msg === "invalid") echo "Please check the room details.";
-                elseif ($msg === "image_error") echo "Image upload failed. Please use JPG, PNG, JPEG, or WEBP only.";
+                elseif ($msg === "save_error") echo "The room could not be saved. Please try again.";
+                elseif ($msg === "image_error") echo "Image upload failed. Choose a JPG, PNG, or WEBP image up to 5 MB.";
                 else echo "Action completed.";
             ?>
         </div>
@@ -74,10 +78,11 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
             <h2>Add New Room</h2>
 
             <form action="save_room.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                 <input type="hidden" name="action" value="add">
 
                 <label>Room Name</label>
-                <input type="text" name="room_name" placeholder="Example: King Room 3" required>
+                <input type="text" name="room_name" maxlength="50" placeholder="Example: King Room 3" required>
 
                 <label>Room Type</label>
                 <select name="room_type" required>
@@ -88,11 +93,11 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
                 </select>
 
                 <label>Room Rate Per Night</label>
-                <input type="number" name="room_rate" min="1" step="0.01" required>
+                <input type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" required>
 
                 <label>Room Image</label>
                 <input type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp">
-                <small class="form-note">Upload JPG, PNG, or WEBP. If empty, default image will be used based on room type.</small>
+                <small class="form-note">Upload JPG, PNG, or WEBP up to 5 MB. If empty, the hotel image will be used.</small>
 
                 <button type="submit">Add Room</button>
             </form>
@@ -150,13 +155,17 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
                             <span class="status-pill status-available">Available</span>
                         <?php } ?>
 
+                        <?php if ($isActive) { ?>
+                            <p><a class="receipt-link" href="index.php?room_id=<?php echo (int)$room["id"]; ?>#booking"><?php echo $isOccupied ? "Guest Details / Check Out" : "Book This Room"; ?></a></p>
+                        <?php } ?>
+
                         <form action="save_room.php" method="POST" enctype="multipart/form-data" class="room-edit-form">
+                            <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                             <input type="hidden" name="action" value="update">
                             <input type="hidden" name="room_id" value="<?php echo (int)$room["id"]; ?>">
-                            <input type="hidden" name="current_image" value="<?php echo e($room["image"]); ?>">
 
                             <label>Room Name</label>
-                            <input type="text" name="room_name" value="<?php echo e($room["room_name"]); ?>" required>
+                            <input type="text" name="room_name" maxlength="50" value="<?php echo e($room["room_name"]); ?>" required>
 
                             <label>Room Type</label>
                             <select name="room_type" required>
@@ -167,7 +176,7 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
                             </select>
 
                             <label>Rate Per Night</label>
-                            <input type="number" name="room_rate" min="1" step="0.01" value="<?php echo e($room["room_rate"]); ?>" required>
+                            <input type="number" name="room_rate" min="0.01" max="99999999.99" step="0.01" value="<?php echo e($room["room_rate"]); ?>" required>
 
                             <label>Change Room Image</label>
                             <input type="file" name="image_file" accept="image/png, image/jpeg, image/jpg, image/webp">
@@ -178,12 +187,14 @@ $msg = isset($_GET["msg"]) ? $_GET["msg"] : "";
 
                         <?php if ($isActive) { ?>
                             <form action="save_room.php" method="POST" onsubmit="return confirm('Disable this room? It will be hidden from booking.');">
+                                <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                                 <input type="hidden" name="action" value="disable">
                                 <input type="hidden" name="room_id" value="<?php echo (int)$room["id"]; ?>">
-                                <button type="submit" class="danger-btn full-width-btn">Disable Room</button>
+                                <button type="submit" class="danger-btn full-width-btn" <?php if ($isOccupied) echo "disabled"; ?>><?php echo $isOccupied ? "Check Out Guest Before Disabling" : "Disable Room"; ?></button>
                             </form>
                         <?php } else { ?>
                             <form action="save_room.php" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
                                 <input type="hidden" name="action" value="enable">
                                 <input type="hidden" name="room_id" value="<?php echo (int)$room["id"]; ?>">
                                 <button type="submit" class="checkout-btn full-width-btn">Enable Room</button>
