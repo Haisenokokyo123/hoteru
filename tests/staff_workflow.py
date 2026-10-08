@@ -221,7 +221,7 @@ def run():
 
             protected = ["index.php", "rooms.php", "transactions.php", "reports.php", "receipt.php?id=1",
                          "save_reservation.php", "save_room.php", "checkout_guest.php", "clear_transactions.php"]
-            for path in protected:
+            for path in protected + ["save_guest_booking.php"]:
                 anonymous.redirect(path, None, "login.php")
             passed("unauthenticated management pages redirect to login")
 
@@ -245,6 +245,7 @@ def run():
             for path in protected:
                 customer.request(path, status=403)
             customer.request("save_reservation.php", {"room_id": rooms[0]}, status=403)
+            staff.request("save_guest_booking.php", {"room_id": rooms[0]}, status=403)
             staff.request("admin_dashboard.php", status=403)
             passed("customer cannot use staff endpoints and staff cannot use admin dashboard")
 
@@ -343,6 +344,28 @@ def run():
             archived, _ = staff.request("transactions.php?archive_filter=archived&search=" + urllib.parse.quote(tag))
             check(tag + " Completed Guest" in archived, "Archived transaction is missing from archived history")
             passed("archive includes completed stays and preserves active bookings")
+
+            staff.redirect("checkout_guest.php", {"csrf_token": token, "reservation_id": active_id},
+                           "index.php?checkout=success")
+            customer_token = customer.csrf("customer_home.php")
+            guest_booking = {"room_id": rooms[0], "full_name": tag + " Guest Portal", "contact_number": "09111111111",
+                             "address": "Guest portal test address", "hours": "3", "payment_method": "GCash",
+                             "csrf_token": customer_token}
+            customer.redirect("save_guest_booking.php", guest_booking, "customer_home.php#our-rooms")
+            row = db.query("SELECT hours,total_amount,is_archived FROM reservations WHERE room_id = ? ORDER BY id DESC LIMIT 1", rooms[0])["rows"][0]
+            check(int(row["hours"]) == 3 and Decimal(row["total_amount"]) == Decimal("3703.50") and int(row["is_archived"]) == 0,
+                  "Guest portal booking was not persisted correctly")
+            guest_page, _ = customer.request("customer_home.php")
+            check("Occupied" in guest_page and f'id="book-room-{rooms[0]}"' not in guest_page,
+                  "Guest portal did not show the booked room as occupied")
+            dashboard, _ = staff.request(f"index.php?room_id={rooms[0]}")
+            check("Check Out Guest" in dashboard and html.escape(guest_booking["full_name"]) in dashboard,
+                  "Guest portal booking is not occupied in the staff portal")
+            duplicate_target = customer.redirect("save_guest_booking.php", guest_booking, f"customer_home.php?room_id={rooms[0]}#book-room-{rooms[0]}")
+            duplicate, _ = customer.request(duplicate_target)
+            check("Another guest has just booked" in duplicate and fixture_reservations() == 3,
+                  "Guest portal permitted an overlapping booking")
+            passed("guest booking persists, marks rooms occupied in both portals and rejects overlaps")
         finally:
             if server is not None:
                 server.terminate()

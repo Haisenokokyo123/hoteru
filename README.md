@@ -41,7 +41,7 @@ Requires PHP with `mysqli`/mysqlnd and a MySQL-compatible database. Tested with 
 
 In the prepared cloud environment, PHP is `/workspace/.hoteru-runtime/bin/php`. Start MariaDB with `/workspace/.hoteru-db/start.sh`; use `DB_HOST=localhost`, `DB_USER=agent`, an empty `DB_PASSWORD`, `DB_NAME=hotel_test`, and `DB_SOCKET=/workspace/.hoteru-db/run/mariadb.sock` for local socket authentication. This local database contains the supplied backup.
 
-Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Room availability considers a stay's checkout instant to be available, and booking requests lock the room while checking overlapping stays. Receipts use the saved charge even if the room price changes later.
+Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Guest and staff bookings both start immediately, lock the room while checking overlaps, and make it occupied in every portal. Room availability considers a stay's checkout instant to be available. Receipts use the saved charge even if the room price changes later. No database migration is required.
 
 ## Regression tests
 

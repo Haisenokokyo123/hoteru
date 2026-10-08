@@ -34,6 +34,25 @@
   });
 })();
 
+// Room cards link to their native disclosure form; open it after following the link.
+(() => {
+  const openBooking = () => {
+    if (!window.location.hash.startsWith("#book-room-")) return;
+    const form = document.querySelector(window.location.hash);
+    if (!(form instanceof HTMLDetailsElement)) return;
+    form.open = true;
+    form.querySelector("summary")?.focus({ preventScroll: true });
+  };
+
+  window.addEventListener("hashchange", openBooking);
+  document.addEventListener("click", (event) => {
+    if (event.target.closest('a[href^="#book-room-"]')) {
+      window.setTimeout(openBooking, 0);
+    }
+  });
+  openBooking();
+})();
+
 // Content stays visible without JavaScript; motion is added only as it enters view.
 (() => {
   const sections = document.querySelectorAll("[data-reveal]");

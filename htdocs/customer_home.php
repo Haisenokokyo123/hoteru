@@ -5,6 +5,11 @@ require_role('customer');
 $conn = db_connect();
 $rooms = mysqli_query($conn, 'SELECT * FROM rooms WHERE is_active=1 ORDER BY room_name');
 $roomCount = mysqli_num_rows($rooms);
+$guestBookingError = $_SESSION['guest_booking_error'] ?? '';
+$guestBookingOld = $_SESSION['guest_booking_old'] ?? [];
+$guestBookingSuccess = $_SESSION['guest_booking_success'] ?? '';
+$failedGuestBookingRoomId = filter_var($_GET['room_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0;
+unset($_SESSION['guest_booking_error'], $_SESSION['guest_booking_old'], $_SESSION['guest_booking_success']);
 $heroPhoto = hotel_photo('pic2') ?: 'hoteru.png';
 $propertyPhotos = [];
 foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
@@ -66,6 +71,12 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
             </div>
             <p><?php echo $roomCount; ?> <?php echo $roomCount === 1 ? 'room' : 'rooms'; ?> to explore<br><span>Contact us for availability</span></p>
         </div>
+        <?php if ($guestBookingSuccess !== '') { ?>
+            <div class="portal-booking-message portal-booking-message--success" role="status"><?php echo e($guestBookingSuccess); ?></div>
+        <?php } ?>
+        <?php if ($guestBookingError !== '') { ?>
+            <div class="portal-booking-message portal-booking-message--error" role="alert"><?php echo e($guestBookingError); ?></div>
+        <?php } ?>
         <?php if ($roomCount === 0) { ?>
             <div class="portal-empty">
                 <h3>Let us help you find your room.</h3>
@@ -75,15 +86,38 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
         <?php } else { ?>
             <div class="portal-room-grid">
             <?php while ($room = mysqli_fetch_assoc($rooms)) { ?>
-                <article class="portal-room-card" data-reveal>
+                <?php $activeReservation = get_active_reservation($conn, (int) $room['id']); ?>
+                <article class="portal-room-card <?php echo $activeReservation ? 'is-occupied' : ''; ?>" data-reveal>
                     <?php render_room_visual($room, 'portal-room-visual'); ?>
                     <div class="portal-room-content">
                         <p class="portal-eyebrow"><?php echo e($room['room_type']); ?></p>
                         <h3><?php echo e($room['room_name']); ?></h3>
                         <div class="portal-room-bottom">
                             <p class="portal-room-rate"><?php echo money($room['room_rate']); ?><span>per night</span></p>
-                            <a class="portal-room-inquire" href="tel:09228125061" aria-label="Call to inquire about <?php echo e($room['room_name']); ?>">Inquire <?php echo ui_icon('arrow-up'); ?></a>
+                            <?php if ($activeReservation) { ?>
+                                <span class="portal-room-status">Occupied</span>
+                            <?php } else { ?>
+                                <a class="portal-room-inquire" href="#book-room-<?php echo (int) $room['id']; ?>">Book now <?php echo ui_icon('arrow-up'); ?></a>
+                            <?php } ?>
                         </div>
+                        <?php if (!$activeReservation) { ?>
+                        <details class="portal-booking-form" id="book-room-<?php echo (int) $room['id']; ?>"<?php echo $failedGuestBookingRoomId === (int) $room['id'] ? ' open' : ''; ?>>
+                            <summary>Book <?php echo e($room['room_name']); ?> <span aria-hidden="true">+</span></summary>
+                            <form action="save_guest_booking.php" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?php echo e(csrf_token()); ?>">
+                                <input type="hidden" name="room_id" value="<?php echo (int) $room['id']; ?>">
+                                <label>Full name<input type="text" name="full_name" autocomplete="name" maxlength="100" value="<?php echo e($guestBookingOld['full_name'] ?? $_SESSION['name']); ?>" required></label>
+                                <label>Contact number<input type="tel" name="contact_number" autocomplete="tel" maxlength="50" value="<?php echo e($guestBookingOld['contact_number'] ?? ''); ?>" required></label>
+                                <label>Address<textarea name="address" autocomplete="street-address" required><?php echo e($guestBookingOld['address'] ?? ''); ?></textarea></label>
+                                <div class="portal-booking-fields">
+                                    <label>Nights<input type="number" name="hours" min="1" max="365" step="1" value="<?php echo e($guestBookingOld['hours'] ?? '1'); ?>" required></label>
+                                    <label>Payment method<select name="payment_method" required><option value="Cash">Cash</option><option value="GCash" <?php echo ($guestBookingOld['payment_method'] ?? '') === 'GCash' ? 'selected' : ''; ?>>GCash</option></select></label>
+                                </div>
+                                <button class="portal-button" type="submit">Confirm booking <?php echo ui_icon('arrow-up'); ?></button>
+                                <p>Booking starts now and makes this room occupied across the hotel system.</p>
+                            </form>
+                        </details>
+                        <?php } ?>
                     </div>
                 </article>
             <?php } ?>
