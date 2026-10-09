@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/gcash.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !gcash_webhook_is_configured()) {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !online_payment_webhook_is_configured()) {
     http_response_code(404);
     exit;
 }
@@ -26,7 +26,7 @@ if (!is_string($checkoutId) || $checkoutId === '') {
 $conn = db_connect();
 try {
     if ($type === 'checkout_session.payment.paid') {
-        confirm_paid_gcash_attempt($conn, $checkoutId, $event);
+        confirm_paid_online_payment_attempt($conn, $checkoutId, $event);
     } elseif (in_array($type, ['checkout_session.payment.failed', 'checkout_session.expired'], true)) {
         $status = $type === 'checkout_session.expired' ? 'expired' : 'failed';
         $encoded = json_encode($event, JSON_UNESCAPED_SLASHES);

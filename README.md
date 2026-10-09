@@ -12,9 +12,9 @@ The staff dashboard uses pronounced, reversible scroll animation throughout the 
 
 The existing database schema and account records remain compatible. **Do not import `database/schema.sql` over your live database.** It is a schema-only copy for a new, empty development database; it contains no guest records or accounts.
 
-## Online GCash checkout
+## QRPh online checkout
 
-Guest bookings paid by GCash use PayMongo's hosted checkout. The guest is redirected to PayMongo, where GCash presents its official payment screen and QR code. The hotel creates the reservation only after PayMongo sends a signed `checkout_session.payment.paid` webhook. Returning from the wallet alone never confirms a room.
+Guest bookings use PayMongo's hosted QRPh checkout. The guest is redirected to PayMongo, which displays its official QRPh code; compatible wallets, including GCash, can scan it. The hotel creates the reservation only after PayMongo sends a signed `checkout_session.payment.paid` webhook. Returning from the wallet alone never confirms a room.
 
 Before enabling it in production:
 
@@ -22,7 +22,7 @@ Before enabling it in production:
 2. Copy `htdocs/payment-config.php.example` to `htdocs/payment-config.php` on the server and set the PayMongo live secret key, webhook secret, and public HTTPS base URL. Keep this private file out of Git.
 3. In PayMongo, create a webhook pointing to `https://your-domain/paymongo_webhook.php` and subscribe it to `checkout_session.payment.paid`, plus the failed/expired checkout events if available.
 
-GCash is deliberately unavailable until all three are complete. Pending checkouts hold a room for 15 minutes to prevent double booking; failed, cancelled, and expired attempts never create a reservation. Cash bookings continue to confirm immediately.
+Online payment is deliberately unavailable until all three are complete. Pending checkouts hold a room for 15 minutes to prevent double booking; failed, cancelled, and expired attempts never create a reservation. The guest portal now shows Online payment (QRPh) as its single payment option.
 
 ## Hotel and room photographs
 
@@ -55,7 +55,7 @@ Requires PHP with `mysqli`/mysqlnd and a MySQL-compatible database. Tested with 
 
 In the prepared cloud environment, PHP is `/workspace/.hoteru-runtime/bin/php`. Start MariaDB with `/workspace/.hoteru-db/start.sh`; use `DB_HOST=localhost`, `DB_USER=agent`, an empty `DB_PASSWORD`, `DB_NAME=hotel_test`, and `DB_SOCKET=/workspace/.hoteru-db/run/mariadb.sock` for local socket authentication. This local database contains the supplied backup.
 
-Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Cash bookings start immediately, lock the room while checking overlaps, and make it occupied in every portal. Online GCash bookings are created only after the payment webhook is confirmed. Room availability considers a stay's checkout instant to be available. Receipts use the saved charge even if the room price changes later.
+Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Online QRPh bookings are created only after the payment webhook is confirmed. Room availability considers a stay's checkout instant to be available. Receipts use the saved charge even if the room price changes later.
 
 ## Regression tests
 

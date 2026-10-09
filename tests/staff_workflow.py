@@ -354,26 +354,16 @@ def run():
             guest_booking = {"room_id": rooms[0], "full_name": tag + " Guest Portal", "contact_number": "09111111111",
                              "address": "Guest portal test address", "hours": "3", "payment_method": "Cash",
                              "csrf_token": customer_token}
-            gcash_target = customer.redirect("save_guest_booking.php", dict(guest_booking, payment_method="GCash"),
-                                             f"customer_home.php?room_id={rooms[0]}#book-room-{rooms[0]}")
-            gcash_page, _ = customer.request(gcash_target)
-            check("Online GCash payments are not configured" in gcash_page and fixture_reservations() == 2,
-                  "Unconfigured GCash must not create a booking")
-            customer.redirect("save_guest_booking.php", guest_booking, "customer_home.php#our-rooms")
-            row = db.query("SELECT hours,total_amount,is_archived FROM reservations WHERE room_id = ? ORDER BY id DESC LIMIT 1", rooms[0])["rows"][0]
-            check(int(row["hours"]) == 3 and Decimal(row["total_amount"]) == Decimal("3703.50") and int(row["is_archived"]) == 0,
-                  "Guest portal booking was not persisted correctly")
+            online_booking = dict(guest_booking, payment_method="Online Payment")
+            online_target = customer.redirect("save_guest_booking.php", online_booking,
+                                              f"customer_home.php?room_id={rooms[0]}#book-room-{rooms[0]}")
+            online_page, _ = customer.request(online_target)
+            check("Online payment is not configured" in online_page and fixture_reservations() == 2,
+                  "Unconfigured online payment must not create a booking")
             guest_page, _ = customer.request("customer_home.php")
-            check("Occupied" in guest_page and f'id="book-room-{rooms[0]}"' not in guest_page,
-                  "Guest portal did not show the booked room as occupied")
-            dashboard, _ = staff.request(f"index.php?room_id={rooms[0]}")
-            check("Check Out Guest" in dashboard and html.escape(guest_booking["full_name"]) in dashboard,
-                  "Guest portal booking is not occupied in the staff portal")
-            duplicate_target = customer.redirect("save_guest_booking.php", guest_booking, f"customer_home.php?room_id={rooms[0]}#book-room-{rooms[0]}")
-            duplicate, _ = customer.request(duplicate_target)
-            check("Another guest has just booked" in duplicate and fixture_reservations() == 3,
-                  "Guest portal permitted an overlapping booking")
-            passed("guest booking persists, marks rooms occupied in both portals and rejects overlaps")
+            check("Online payment (QRPh)" in guest_page and f'id="book-room-{rooms[0]}"' in guest_page,
+                  "Guest portal did not keep the room available after an unconfirmed payment")
+            passed("guest online payment requires confirmed provider configuration before booking")
         finally:
             if server is not None:
                 server.terminate()

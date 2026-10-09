@@ -101,7 +101,7 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
                             <?php if ($activeReservation) { ?>
                                 <span class="portal-room-status">Occupied</span>
                             <?php } elseif ($paymentHold) { ?>
-                                <span class="portal-room-status">Payment in progress</span>
+                                <span class="portal-room-status">Online payment in progress</span>
                             <?php } else { ?>
                                 <a class="portal-room-inquire" href="#book-room-<?php echo (int) $room['id']; ?>">Book now <?php echo ui_icon('arrow-up'); ?></a>
                             <?php } ?>
@@ -117,7 +117,7 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
                                 <label>Address<textarea name="address" autocomplete="street-address" required><?php echo e($guestBookingOld['address'] ?? ''); ?></textarea></label>
                                 <div class="portal-booking-fields">
                                     <label>Nights<input type="number" name="hours" min="1" max="365" step="1" value="<?php echo e($guestBookingOld['hours'] ?? '1'); ?>" required></label>
-                                    <label>Payment method<select name="payment_method" required><option value="Cash">Cash</option><option value="GCash" <?php echo ($guestBookingOld['payment_method'] ?? '') === 'GCash' ? 'selected' : ''; ?>>GCash</option></select></label>
+                                    <label>Payment method<select name="payment_method" required><option value="Online Payment" selected>Online payment (QRPh)</option></select></label>
                                 </div>
                                 <section class="portal-stay-summary" aria-label="Stay summary">
                                     <h4>Stay summary</h4>
@@ -126,7 +126,7 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
                                     <p class="portal-stay-total"><span>Total amount</span><strong data-total-display><?php echo money($room['room_rate'] * (int) ($guestBookingOld['hours'] ?? 1)); ?></strong></p>
                                 </section>
                                 <button class="portal-button" type="submit">Continue to payment <?php echo ui_icon('arrow-up'); ?></button>
-                                <p>Cash bookings are confirmed immediately. GCash opens an official secure checkout; the room is only booked after payment is confirmed.</p>
+                                <p>QRPh opens an official secure checkout that can be scanned with compatible wallets, including GCash. The room is only booked after payment is confirmed.</p>
                             </form>
                         </details>
                         <?php } ?>

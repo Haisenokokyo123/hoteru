@@ -23,16 +23,16 @@ if ($cancelled) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Confirming GCash payment — Bongabong View Hotel</title>
+    <title>Confirming online payment — Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=20261009a">
     <link rel="stylesheet" href="portals.css?v=<?php echo filemtime(__DIR__ . '/portals.css'); ?>">
 </head>
 <body class="portal-body portal-guest-page">
 <?php render_navbar(); ?>
 <main class="portal-page"><section class="portal-container portal-empty" aria-live="polite">
-    <p class="portal-eyebrow">Secure GCash payment</p>
+    <p class="portal-eyebrow">Secure online payment</p>
     <h1 id="payment-title"><?php echo $cancelled ? 'Payment not completed.' : 'Confirming your payment…'; ?></h1>
-    <p id="payment-message"><?php echo $cancelled ? 'Your room has not been booked. You can return and try again.' : 'We will confirm your room as soon as PayMongo tells us that GCash payment is complete.'; ?></p>
+    <p id="payment-message"><?php echo $cancelled ? 'Your room has not been booked. You can return and try again.' : 'We will confirm your room as soon as PayMongo tells us that your QRPh payment is complete.'; ?></p>
     <a class="portal-button" id="payment-action" href="customer_home.php#our-rooms"><?php echo $cancelled ? 'Return to rooms' : 'Keep this page open'; ?></a>
 </section></main>
 <?php render_footer(); ?>

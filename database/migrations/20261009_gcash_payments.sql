@@ -1,4 +1,4 @@
--- Run this once against the live hotel database before enabling online GCash.
+-- Run this once against the live hotel database before enabling QRPh online payment.
 -- Existing reservations and accounts are not changed.
 CREATE TABLE `payment_attempts` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,

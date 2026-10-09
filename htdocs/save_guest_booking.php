@@ -26,8 +26,8 @@ $nights = filter_var($values['hours'], FILTER_VALIDATE_INT, ['options' => ['min_
 if (!$roomId || !$nights || $values['full_name'] === '' || $values['contact_number'] === '' || $values['address'] === '') {
     guest_booking_failed('Complete your contact details and choose 1 to 365 whole nights.', $roomId, $values);
 }
-if (strlen($values['full_name']) > 100 || strlen($values['contact_number']) > 50 || strlen($values['address']) > 65535 || !in_array($values['payment_method'], ['Cash', 'GCash'], true)) {
-    guest_booking_failed('Check your booking details and choose Cash or GCash.', $roomId, $values);
+if (strlen($values['full_name']) > 100 || strlen($values['contact_number']) > 50 || strlen($values['address']) > 65535 || $values['payment_method'] !== 'Online Payment') {
+    guest_booking_failed('Check your booking details and choose Online payment.', $roomId, $values);
 }
 
 $conn = db_connect();
@@ -45,7 +45,7 @@ try {
 
     if ($paymentHold = payment_hold_for_room($conn, $roomId)) {
         $conn->rollback();
-        guest_booking_failed('A GCash payment is currently in progress for this room. Please choose another room or try again in a few minutes.', $roomId, $values);
+        guest_booking_failed('An online payment is currently in progress for this room. Please choose another room or try again in a few minutes.', $roomId, $values);
     }
 
     $now = new DateTimeImmutable();
@@ -65,14 +65,14 @@ try {
         guest_booking_failed('This room cannot be booked at the current rate. Please contact the front desk.', $roomId, $values);
     }
 
-    if ($values['payment_method'] === 'GCash') {
-        if (!gcash_is_configured() || !gcash_webhook_is_configured()) {
+    if ($values['payment_method'] === 'Online Payment') {
+        if (!online_payment_is_configured() || !online_payment_webhook_is_configured()) {
             $conn->rollback();
-            guest_booking_failed('Online GCash payments are not configured yet. Please choose Cash or contact the hotel.', $roomId, $values);
+            guest_booking_failed('Online payment is not configured yet. Please contact the hotel.', $roomId, $values);
         }
         if (!payment_attempts_available($conn)) {
             $conn->rollback();
-            guest_booking_failed('Online GCash is being prepared. Please choose Cash or contact the hotel.', $roomId, $values);
+            guest_booking_failed('Online payment is being prepared. Please contact the hotel.', $roomId, $values);
         }
         $token = bin2hex(random_bytes(32));
         $customerId = (int) ($_SESSION['user_id'] ?? $_SESSION['id'] ?? 0);
@@ -84,7 +84,7 @@ try {
         $attemptId = $conn->insert_id;
         $conn->commit();
         try {
-            $checkout = create_gcash_checkout(['booking_token' => $token, 'amount' => $total], $room['room_name']);
+            $checkout = create_qrph_checkout(['booking_token' => $token, 'amount' => $total], $room['room_name']);
             $statement = $conn->prepare("UPDATE payment_attempts SET provider_checkout_id = ?, provider_checkout_url = ? WHERE id = ? AND status = 'pending'");
             $statement->bind_param('ssi', $checkout['id'], $checkout['url'], $attemptId);
             $statement->execute();
@@ -94,8 +94,8 @@ try {
             $statement = $conn->prepare("UPDATE payment_attempts SET status = 'failed' WHERE id = ? AND status = 'pending'");
             $statement->bind_param('i', $attemptId);
             $statement->execute();
-            error_log('GCash checkout failed: ' . $error->getMessage());
-            guest_booking_failed('GCash could not start right now. Please choose Cash or try again.', $roomId, $values);
+            error_log('Online payment checkout failed: ' . $error->getMessage());
+            guest_booking_failed('Online payment could not start right now. Please try again.', $roomId, $values);
         }
     }
 
