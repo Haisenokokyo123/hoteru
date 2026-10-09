@@ -9,10 +9,46 @@
   const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
   const toggle = document.querySelector("[data-staff-motion-toggle]");
   const header = document.querySelector(".site-header");
+  const footer = document.querySelector(".site-footer");
+  if (footer) footer.dataset.staffScroll = "heading";
+  const ribbon = document.querySelector(".staff-scroll-ribbon");
   const photos = [...hero.querySelectorAll(".staff-hero-image")];
   const cards = [...document.querySelectorAll("[data-staff-scroll-card]")].map(
     (element) => ({ element, top: 0, height: 0, progress: 1, focused: false }),
   );
+  const sections = [...document.querySelectorAll("[data-staff-scroll]")].map(
+    (element) => ({
+      element,
+      type: element.dataset.staffScroll,
+      top: 0,
+      height: 0,
+      progress: 1,
+      settled: false,
+      order: [...element.parentElement.children]
+        .filter((sibling) =>
+          sibling.matches(
+            `[data-staff-scroll="${element.dataset.staffScroll}"]`,
+          ),
+        )
+        .indexOf(element),
+    }),
+  );
+  const revealProperties = [
+    "--reveal-y",
+    "--reveal-x",
+    "--reveal-tilt",
+    "--reveal-scale",
+    "--reveal-opacity",
+    "--reveal-progress",
+  ];
+  const cardProperties = [
+    "--card-y",
+    "--card-tilt",
+    "--card-scale",
+    "--card-opacity",
+    "--card-image-y",
+    "--card-image-zoom",
+  ];
   const clamp = (number) => Math.max(0, Math.min(1, number));
   const ease = (number) => {
     const value = clamp(number);
@@ -34,6 +70,19 @@
   let progress = 0;
   let viewport = window.innerHeight;
   let desktop = false;
+  let maxScroll = 1;
+  let ribbonTop = 0;
+  let pointerTarget = null;
+
+  // Layout coordinates ignore transforms on both the element and its ancestors.
+  const layoutTop = (element) => {
+    let top = 0;
+    while (element) {
+      top += element.offsetTop;
+      element = element.offsetParent;
+    }
+    return top;
+  };
 
   const resetScene = () => {
     [
@@ -44,6 +93,7 @@
       "--scroll-card-lift",
       "--scroll-frame",
       "--scroll-line",
+      "--scroll-title-x",
     ].forEach((name) => hero.style.removeProperty(name));
     for (let index = 1; index <= 6; index++) {
       hero.style.removeProperty(`--scroll-word-${index}`);
@@ -52,10 +102,13 @@
       photo.style.opacity = index === 0 ? "1" : "0";
     });
     cards.forEach(({ element }) => {
-      ["--card-y", "--card-tilt", "--card-scale", "--card-opacity"].forEach(
-        (name) => element.style.removeProperty(name),
-      );
+      cardProperties.forEach((name) => element.style.removeProperty(name));
     });
+    sections.forEach(({ element }) =>
+      revealProperties.forEach((name) => element.style.removeProperty(name)),
+    );
+    body.style.removeProperty("--page-progress");
+    ribbon?.style.removeProperty("--ribbon-x");
   };
 
   const measure = () => {
@@ -68,7 +121,7 @@
     const heroHeight = hero.offsetHeight;
     const top = headerHeight + 16;
     const fits = desktop && heroHeight <= viewport - top - 24;
-    const extra = Math.min(560, Math.round(viewport * 0.6));
+    const extra = Math.min(760, Math.round(viewport * 0.85));
     stage.style.setProperty("--hero-height", `${heroHeight}px`);
     stage.style.setProperty("--pin-top", `${top}px`);
     stage.style.setProperty("--pin-distance", `${extra}px`);
@@ -77,15 +130,14 @@
     distance = fits ? extra : Math.max(1, heroHeight * 0.9);
 
     // offsetTop uses layout coordinates, unaffected by the animated transforms.
-    cards.forEach((card) => {
-      let element = card.element;
-      card.top = 0;
-      while (element) {
-        card.top += element.offsetTop;
-        element = element.offsetParent;
-      }
-      card.height = card.element.offsetHeight;
+    [...cards, ...sections].forEach((item) => {
+      item.top = layoutTop(item.element);
+      item.height = item.element.offsetHeight;
     });
+    ribbonTop = ribbon ? layoutTop(ribbon) : 0;
+    // Use layout height rather than transformed scrollHeight, avoiding a feedback loop.
+    const last = footer || document.querySelector("main");
+    maxScroll = Math.max(1, layoutTop(last) + last.offsetHeight - viewport);
   };
 
   const drawHero = () => {
@@ -93,25 +145,29 @@
     hero.style.setProperty("--scroll-progress", amount.toFixed(4));
     hero.style.setProperty(
       "--scroll-zoom",
-      (1.08 + amount * (desktop ? 0.2 : 0.06)).toFixed(4),
+      (1.06 + amount * (desktop ? 0.48 : 0.28)).toFixed(4),
     );
     hero.style.setProperty(
       "--scroll-pan",
-      `${(-amount * (desktop ? 32 : 12)).toFixed(2)}px`,
+      `${(-amount * (desktop ? 64 : 30)).toFixed(2)}px`,
     );
     hero.style.setProperty(
       "--scroll-shift",
-      `${(-amount * (desktop ? 18 : 6)).toFixed(2)}px`,
+      `${(-amount * (desktop ? 26 : 12)).toFixed(2)}px`,
     );
     hero.style.setProperty(
       "--scroll-card-lift",
-      `${(-amount * (desktop ? 28 : 8)).toFixed(2)}px`,
+      `${(-amount * (desktop ? 44 : 18)).toFixed(2)}px`,
     );
     hero.style.setProperty(
       "--scroll-frame",
       `${(24 - amount * 14).toFixed(2)}px`,
     );
     hero.style.setProperty("--scroll-line", progress.toFixed(4));
+    hero.style.setProperty(
+      "--scroll-title-x",
+      `${(-amount * (desktop ? 24 : 8)).toFixed(2)}px`,
+    );
     for (let index = 0; index < 6; index++) {
       hero.style.setProperty(
         `--scroll-word-${index + 1}`,
@@ -131,20 +187,66 @@
     const remaining = 1 - ease(card.progress);
     card.element.style.setProperty(
       "--card-y",
-      `${(remaining * (desktop ? 64 : 16)).toFixed(2)}px`,
+      `${(remaining * (desktop ? 130 : 70)).toFixed(2)}px`,
     );
     card.element.style.setProperty(
       "--card-tilt",
-      `${(remaining * (desktop ? 7 : 0)).toFixed(2)}deg`,
+      `${(remaining * (desktop ? 14 : 6)).toFixed(2)}deg`,
     );
     card.element.style.setProperty(
       "--card-scale",
-      (1 - remaining * (desktop ? 0.055 : 0)).toFixed(4),
+      (1 - remaining * (desktop ? 0.16 : 0.08)).toFixed(4),
     );
     card.element.style.setProperty(
       "--card-opacity",
-      (1 - remaining * 0.24).toFixed(4),
+      (1 - remaining * 0.88).toFixed(4),
     );
+  };
+
+  const drawSection = (section) => {
+    const amount = ease(section.progress);
+    const remaining = 1 - amount;
+    const amplitudes = {
+      stat: [0, 110, 12, 0.14],
+      heading: [-72, 45, 0, 0],
+      picker: [0, 80, 5, 0.08],
+      "panel-left": [-85, 65, 0, 0.06],
+      booking: [85, 65, 0, 0.06],
+      "form-step": [0, 55, 0, 0.03],
+      summary: [0, 65, 8, 0.1],
+      "table-row": [30, 18, 0, 0],
+    };
+    const [x, y, tilt, scale] = amplitudes[section.type] || amplitudes.heading;
+    const strength = desktop ? 1 : 0.6;
+    const style = section.element.style;
+    style.setProperty(
+      "--reveal-x",
+      `${(x * remaining * strength).toFixed(2)}px`,
+    );
+    style.setProperty(
+      "--reveal-y",
+      `${(y * remaining * strength).toFixed(2)}px`,
+    );
+    style.setProperty(
+      "--reveal-tilt",
+      `${(tilt * remaining * strength).toFixed(2)}deg`,
+    );
+    style.setProperty(
+      "--reveal-scale",
+      (1 - scale * remaining * strength).toFixed(4),
+    );
+    style.setProperty("--reveal-opacity", (1 - 0.88 * remaining).toFixed(4));
+    style.setProperty("--reveal-progress", amount.toFixed(4));
+  };
+
+  const entryProgress = (item, scroll, delay = 0) => {
+    const range = Math.min(viewport * 0.4, Math.max(180, item.height * 0.8));
+    // Even the final footer/summary must finish before the end of the document.
+    const start = Math.min(
+      item.top - viewport * 0.94 + delay,
+      maxScroll - range,
+    );
+    return clamp((scroll - start) / range);
   };
 
   const update = () => {
@@ -158,21 +260,59 @@
     let moving = Math.abs(target - progress) > 0.001;
     if (!moving) progress = target;
     drawHero();
+    body.style.setProperty(
+      "--page-progress",
+      clamp(scroll / maxScroll).toFixed(4),
+    );
+    if (ribbon) {
+      const travel = clamp((scroll + viewport - ribbonTop) / (viewport * 1.6));
+      ribbon.style.setProperty(
+        "--ribbon-x",
+        `${(-travel * (desktop ? 300 : 150)).toFixed(2)}px`,
+      );
+    }
 
     cards.forEach((card, index) => {
-      // A small column offset creates a cascading reveal; focused links always stay settled.
-      const delay = desktop ? (index % 4) * 22 : 0;
-      const end = Math.min(card.height * 0.65, viewport * 0.38);
-      const target = card.focused
-        ? 1
-        : clamp(
-            (scroll + viewport * 0.96 - card.top - delay) / Math.max(1, end),
-          );
+      const delay = desktop ? (index % 4) * 48 : 0;
+      const target = pointerTarget && card.element.contains(pointerTarget)
+        ? card.progress
+        : card.focused ? 1 : entryProgress(card, scroll, delay);
       card.progress += (target - card.progress) * step;
       const changing = Math.abs(target - card.progress) > 0.001;
       if (!changing) card.progress = target;
       moving = moving || changing;
       drawCard(card);
+      const imageProgress = clamp(
+        (scroll + viewport - card.top) / (viewport + card.height),
+      );
+      card.element.style.setProperty(
+        "--card-image-y",
+        `${((imageProgress - 0.5) * (desktop ? 38 : 20)).toFixed(2)}px`,
+      );
+      card.element.style.setProperty(
+        "--card-image-zoom",
+        (1.25 - imageProgress * 0.1).toFixed(4),
+      );
+    });
+    sections.forEach((section) => {
+      const stagger =
+        section.type === "stat"
+          ? desktop
+            ? 55
+            : 25
+          : section.type === "table-row"
+            ? 12
+            : 0;
+      const target = pointerTarget && section.element.contains(pointerTarget)
+        ? section.progress
+        : section.settled
+        ? 1
+        : entryProgress(section, scroll, Math.min(section.order, 6) * stagger);
+      section.progress += (target - section.progress) * step;
+      const changing = Math.abs(target - section.progress) > 0.001;
+      if (!changing) section.progress = target;
+      moving = moving || changing;
+      drawSection(section);
     });
     initialized = true;
     if (moving) frame = requestAnimationFrame(update);
@@ -237,7 +377,7 @@
   });
   cards.forEach((card) => {
     card.element.addEventListener("focusin", () => {
-      card.focused = true;
+      card.focused = !pointerTarget;
       schedule();
     });
     card.element.addEventListener("focusout", () => {
@@ -245,12 +385,79 @@
       schedule();
     });
   });
+  const settle = (target, includeChildren = true) => {
+    // Once a person interacts with a panel, keep it and its controls stationary.
+    const container = target.closest(".booking-box, .panel-box, .room-picker");
+    sections.forEach((section) => {
+      if (
+        (container &&
+          (container === section.element ||
+            (includeChildren && container.contains(section.element)))) ||
+        section.element.contains(target)
+      ) {
+        section.settled = true;
+        section.progress = 1;
+        section.element.classList.add(
+          includeChildren ? "is-motion-settled" : "is-motion-anchored",
+        );
+        if (enabled) drawSection(section);
+      }
+    });
+  };
+  document.addEventListener("focusin", (event) => {
+    if (!pointerTarget && event.target.matches(":focus-visible")) settle(event.target);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    // Mouse/touch focus can precede click. Preserve the hit target until click dispatch.
+    pointerTarget = event.target;
+    body.classList.add("staff-pointer-active");
+  }, { capture: true, passive: true });
+  const releasePointer = () => {
+    setTimeout(() => {
+      const target = pointerTarget;
+      if (target && target.contains(document.activeElement)) settle(target);
+      pointerTarget = null;
+      body.classList.remove("staff-pointer-active");
+      schedule();
+    }, 0);
+  };
+  window.addEventListener("pointerup", releasePointer, { passive: true });
+  window.addEventListener("pointercancel", releasePointer, { passive: true });
+  window.addEventListener("blur", releasePointer);
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (event.target.closest("input, select, textarea, button, a"))
+        settle(event.target);
+    },
+    { passive: true },
+  );
+  const settleAnchor = () => {
+    let target;
+    try {
+      target = document.getElementById(
+        decodeURIComponent(location.hash.slice(1)),
+      );
+    } catch (_) {
+      return;
+    }
+    if (target) settle(target, false);
+    layoutChanged();
+  };
+  window.addEventListener("hashchange", settleAnchor);
+  window.addEventListener("load", () => {
+    settleAnchor();
+    layoutChanged();
+  });
   if ("ResizeObserver" in window) {
     const resize = new ResizeObserver(layoutChanged);
     resize.observe(hero);
     if (header) resize.observe(header);
     cards.forEach((card) => resize.observe(card.element));
+    sections.forEach((section) => resize.observe(section.element));
+    if (ribbon) resize.observe(ribbon);
   }
   if (document.fonts?.ready) document.fonts.ready.then(layoutChanged);
   applyPreference();
+  settleAnchor();
 })();
