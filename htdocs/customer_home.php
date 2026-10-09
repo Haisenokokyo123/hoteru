@@ -12,7 +12,7 @@ $failedGuestBookingRoomId = filter_var($_GET['room_id'] ?? null, FILTER_VALIDATE
 unset($_SESSION['guest_booking_error'], $_SESSION['guest_booking_old'], $_SESSION['guest_booking_success']);
 $heroPhoto = hotel_photo('pic2') ?: 'hoteru.png';
 $propertyPhotos = [];
-foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
+foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
     $photoPath = hotel_photo($photoName);
     if ($photoPath !== null) {
         $propertyPhotos[] = $photoPath;
@@ -26,7 +26,7 @@ foreach (['pic1', 'pic2', 'pic3'] as $photoName) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Your Stay — Bongabong View Hotel</title>
     <link rel="stylesheet" href="style.css?v=20261009a">
-    <link rel="stylesheet" href="portals.css?v=20261009a">
+    <link rel="stylesheet" href="portals.css?v=<?php echo filemtime(__DIR__ . '/portals.css'); ?>">
 </head>
 <body class="portal-body portal-guest-page">
 <?php render_navbar(); ?>

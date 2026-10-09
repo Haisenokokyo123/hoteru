@@ -1,0 +1,239 @@
+/* Scroll choreography is progressive: the default page is ordinary document flow. */
+.staff-page .staff-context-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+.staff-page .staff-motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  border: 1px solid #ccd8ca;
+  border-radius: 30px;
+  background: #fdfcf7;
+  color: #294c3c;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.staff-page .staff-motion-toggle:hover {
+  background: #e7eddf;
+}
+.staff-page .staff-motion-toggle:disabled {
+  opacity: 1;
+  color: #59675c;
+}
+.staff-page .staff-motion-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #548267;
+  box-shadow: 0 0 0 3px #54826718;
+}
+.staff-page .staff-motion-toggle[aria-pressed="false"] .staff-motion-dot {
+  background: #8b9186;
+  box-shadow: none;
+}
+.staff-page .staff-scroll-stage {
+  margin-bottom: 26px;
+}
+.staff-page .staff-scroll-stage .staff-hero {
+  margin-bottom: 0;
+}
+.staff-page .staff-scroll-copy,
+.staff-page .staff-scroll-aside {
+  min-width: 0;
+}
+.staff-page .staff-hero-scene .staff-hero-image {
+  position: absolute;
+  inset: 0;
+}
+.staff-page .staff-scroll-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  margin-top: 32px;
+  padding-top: 25px;
+  border-top: 1px solid #eddbb82b;
+}
+.staff-page .staff-scroll-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.24em;
+  margin: 0;
+  color: #efd9b2;
+  font: italic clamp(23px, 2.25vw, 34px) / 1.4 var(--serif);
+  letter-spacing: -0.02em;
+}
+.staff-page .staff-scroll-words > span:nth-child(even) {
+  margin-right: 0.28em;
+  color: #fffdf5;
+}
+.staff-page .staff-scroll-cue {
+  display: none;
+  align-items: center;
+  gap: 15px;
+  color: #e3d4bb;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.staff-page .staff-scroll-line {
+  display: block;
+  width: 88px;
+  height: 2px;
+  overflow: hidden;
+  background: #ffffff30;
+}
+.staff-page .staff-scroll-line > span {
+  display: block;
+  height: 100%;
+  background: #eddbb8;
+  transform: scaleX(var(--scroll-line, 0));
+  transform-origin: left;
+}
+.staff-page .staff-scroll-stage .staff-hero-bottom {
+  border-top: 0;
+  margin-top: 24px;
+  padding-top: 0;
+}
+.staff-page.staff-scroll-ready .is-scroll-pinned {
+  height: calc(var(--hero-height) + var(--pin-distance));
+}
+.staff-page.staff-scroll-ready .is-scroll-pinned .staff-hero {
+  position: sticky;
+  top: var(--pin-top);
+}
+.staff-page.staff-scroll-ready .staff-scroll-cue {
+  display: flex;
+}
+.staff-page.staff-scroll-ready .staff-hero {
+  border-radius: var(--scroll-frame, 24px);
+}
+.staff-page.staff-scroll-ready .staff-hero-image {
+  transform: translate3d(
+      var(--scene-x, 0px),
+      calc(var(--scene-y, 0px) + var(--scroll-pan, 0px)),
+      0
+    )
+    scale(var(--scroll-zoom, 1.08));
+  transition: none;
+}
+.staff-page.staff-scroll-ready .staff-scroll-copy {
+  transform: translateY(var(--scroll-shift, 0px));
+}
+.staff-page.staff-scroll-ready .staff-scroll-aside {
+  transform: translateY(var(--scroll-card-lift, 0px));
+}
+.staff-page.staff-scroll-ready .staff-scroll-words > span {
+  opacity: calc(0.65 + 0.35 * var(--word-progress, 0));
+}
+.staff-page .staff-scroll-words > span:nth-child(1) {
+  --word-progress: var(--scroll-word-1, 1);
+}
+.staff-page .staff-scroll-words > span:nth-child(2) {
+  --word-progress: var(--scroll-word-2, 1);
+}
+.staff-page .staff-scroll-words > span:nth-child(3) {
+  --word-progress: var(--scroll-word-3, 1);
+}
+.staff-page .staff-scroll-words > span:nth-child(4) {
+  --word-progress: var(--scroll-word-4, 1);
+}
+.staff-page .staff-scroll-words > span:nth-child(5) {
+  --word-progress: var(--scroll-word-5, 1);
+}
+.staff-page .staff-scroll-words > span:nth-child(6) {
+  --word-progress: var(--scroll-word-6, 1);
+}
+.staff-page.staff-scroll-ready .rooms-grid {
+  perspective: 1200px;
+}
+.staff-page.staff-scroll-ready [data-staff-scroll-card] {
+  opacity: var(--card-opacity, 1);
+  transform: translateY(var(--card-y, 0px)) rotateX(var(--card-tilt, 0deg))
+    scale(var(--card-scale, 1));
+  transform-origin: center top;
+  transition:
+    box-shadow 350ms ease,
+    border-color 250ms ease;
+}
+.staff-page.staff-scroll-ready [data-staff-scroll-card]:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .staff-page.staff-scroll-ready a[data-staff-scroll-card]:hover {
+    transform: translateY(calc(var(--card-y, 0px) - 4px))
+      rotateX(var(--card-tilt, 0deg)) scale(var(--card-scale, 1));
+  }
+}
+@media (max-width: 900px) {
+  .staff-page .staff-context-tools {
+    justify-content: flex-start;
+    gap: 8px 16px;
+  }
+  .staff-page .staff-scroll-caption {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 26px;
+    padding-top: 22px;
+    gap: 16px;
+  }
+  .staff-page .staff-scroll-words {
+    font-size: clamp(22px, 4.6vw, 30px);
+  }
+  .staff-page .staff-scroll-cue {
+    font-size: 10px;
+  }
+}
+/* Both the OS preference and the page toggle disable the complete motion stack. */
+html.staff-motion-paused {
+  scroll-behavior: auto;
+}
+.staff-page.staff-motion-paused *,
+.staff-page.staff-motion-paused *::before,
+.staff-page.staff-motion-paused *::after {
+  transition: none !important;
+  animation: none !important;
+}
+.staff-page.staff-motion-paused .staff-hero-image,
+.staff-page.staff-motion-paused .room-card .room-visual > img,
+.staff-page.staff-motion-paused a.room-card,
+.staff-page.staff-motion-paused a.room-card:hover,
+.staff-page.staff-motion-paused .hero-buttons .primary-btn:hover,
+.staff-page.staff-motion-paused .room-card-footer .ui-icon {
+  transform: none;
+  transition: none;
+}
+.staff-page.staff-motion-paused .staff-scroll-cue {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .staff-page .staff-scroll-stage {
+    height: auto !important;
+  }
+  .staff-page .staff-scroll-stage .staff-hero {
+    position: relative !important;
+    top: auto;
+  }
+  .staff-page .staff-scroll-copy,
+  .staff-page .staff-scroll-aside,
+  .staff-page [data-staff-scroll-card],
+  .staff-page a[data-staff-scroll-card]:hover {
+    transform: none !important;
+    opacity: 1;
+  }
+  .staff-page .staff-scroll-words > span {
+    opacity: 1;
+  }
+  .staff-page .staff-scroll-cue {
+    display: none !important;
+  }
+}

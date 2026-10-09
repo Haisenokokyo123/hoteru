@@ -4,6 +4,9 @@
     return;
 
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const motionPaused = () =>
+    reducedMotion.matches ||
+    document.body.classList.contains("staff-motion-paused");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const animations = new Map();
   const revealed = new WeakSet();
@@ -26,7 +29,7 @@
 
   const revealSections = () => {
     if (
-      reducedMotion.matches ||
+      motionPaused() ||
       !("IntersectionObserver" in window) ||
       !("animate" in Element.prototype)
     )
@@ -41,7 +44,7 @@
             const element = entry.target;
             revealObserver.unobserve(element);
             revealed.add(element);
-            if (reducedMotion.matches || document.hidden) return;
+            if (motionPaused() || document.hidden) return;
 
             if (element.classList.contains("staff-ring-progress")) {
               const offset = parseFloat(
@@ -115,10 +118,7 @@
   };
 
   const depthAllowed = () =>
-    heroVisible &&
-    !document.hidden &&
-    !reducedMotion.matches &&
-    finePointer.matches;
+    heroVisible && !document.hidden && !motionPaused() && finePointer.matches;
 
   const updateDepth = () => {
     frame = 0;
@@ -184,15 +184,17 @@
     else if (query.addListener) query.addListener(callback);
   };
 
-  onPreferenceChange(reducedMotion, () => {
-    if (reducedMotion.matches) {
+  const updateMotionPreference = () => {
+    if (motionPaused()) {
       if (revealObserver) revealObserver.disconnect();
       cancelAnimations();
       resetDepth();
     } else {
       revealSections();
     }
-  });
+  };
+  onPreferenceChange(reducedMotion, updateMotionPreference);
+  window.addEventListener("staff-motion-change", updateMotionPreference);
   onPreferenceChange(finePointer, () => {
     if (!finePointer.matches) resetDepth();
   });

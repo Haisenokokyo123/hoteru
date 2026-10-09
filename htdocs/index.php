@@ -126,7 +126,12 @@ while ($room = mysqli_fetch_assoc($roomsQuery)) {
 $displayGroups = array_values($roomGroups);
 $occupancyPercent = $totalRooms ? (int) round(count($occupiedRooms) / $totalRooms * 100) : 0;
 $availablePercent = $totalRooms ? count($availableRooms) / $totalRooms * 100 : 0;
-$staffHeroPhoto = hotel_photo('pic2') ?: 'hoteru.png';
+$staffHeroPhotos = [];
+foreach (['pic2', 'pic4', 'pic5', 'pic6', 'pic1', 'pic3'] as $photoName) {
+    $photo = hotel_photo($photoName);
+    if ($photo !== null) $staffHeroPhotos[] = $photo;
+}
+if (!$staffHeroPhotos) $staffHeroPhotos[] = 'hoteru.png';
 
 $todayRevenueQuery = mysqli_query($conn, "
     SELECT SUM(total_amount) AS total FROM reservations
@@ -164,6 +169,8 @@ $recentTransactions = mysqli_query($conn, "
     <title>Bongabong View Hotel System</title>
     <link rel="stylesheet" href="style.css?v=20261008">
     <link rel="stylesheet" href="staff.css?v=<?php echo filemtime(__DIR__ . '/staff.css'); ?>">
+    <link rel="stylesheet" href="staff-scroll.css?v=<?php echo filemtime(__DIR__ . '/staff-scroll.css'); ?>">
+    <script src="staff-scroll.js?v=<?php echo filemtime(__DIR__ . '/staff-scroll.js'); ?>" defer></script>
     <script src="staff.js?v=<?php echo filemtime(__DIR__ . '/staff.js'); ?>" defer></script>
 </head>
 <body class="staff-page">
@@ -173,13 +180,20 @@ $recentTransactions = mysqli_query($conn, "
 <main class="frontdesk-main" id="main-content">
 <div class="context-row">
     <span>Hotel operations <span aria-hidden="true">&nbsp; / &nbsp;</span> Front desk</span>
-    <span><?php echo ui_icon('clock'); ?><?php echo e(date('l, d F Y')); ?></span>
+    <div class="staff-context-tools">
+        <span><?php echo ui_icon('clock'); ?><?php echo e(date('l, d F Y')); ?></span>
+        <button class="staff-motion-toggle" type="button" data-staff-motion-toggle aria-label="Animated effects" aria-pressed="true" hidden><span class="staff-motion-dot" aria-hidden="true"></span><span data-motion-label>Motion on</span></button>
+    </div>
 </div>
+<div class="staff-scroll-stage" data-staff-scroll-stage>
 <section class="frontdesk-hero staff-hero" aria-labelledby="dashboard-title">
     <div class="staff-hero-scene" aria-hidden="true">
-        <img class="staff-hero-image" src="<?php echo e($staffHeroPhoto); ?>" alt="" fetchpriority="high">
+        <?php foreach ($staffHeroPhotos as $photoIndex => $photo) { ?>
+        <img class="staff-hero-image" src="<?php echo e($photo); ?>" alt="" style="opacity: <?php echo $photoIndex === 0 ? '1' : '0'; ?>" <?php echo $photoIndex === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?>>
+        <?php } ?>
     </div>
     <div class="staff-hero-layout">
+    <div class="staff-scroll-copy">
     <div class="hero-copy" data-staff-reveal>
         <p class="eyebrow">WELCOME BACK, <?php echo e($_SESSION['name'] ?? 'OUR TEAM'); ?></p>
         <h1 id="dashboard-title">A thoughtful welcome.<br><em>Every single stay.</em></h1>
@@ -189,6 +203,8 @@ $recentTransactions = mysqli_query($conn, "
             <a href="transactions.php" class="text-link">View transactions <?php echo ui_icon('arrow'); ?></a>
         </div>
     </div>
+    </div>
+    <div class="staff-scroll-aside">
     <aside class="staff-hero-aside" aria-label="Current room availability" data-staff-reveal>
         <div class="staff-availability-panel">
             <p class="staff-panel-kicker">The hotel, at a glance</p>
@@ -210,11 +226,17 @@ $recentTransactions = mysqli_query($conn, "
         </div>
     </aside>
     </div>
+    </div>
+    <div class="staff-scroll-caption">
+        <p class="staff-scroll-words"><span>Every</span> <span>arrival.</span> <span>Every</span> <span>detail.</span> <span>Every</span> <span>stay.</span></p>
+        <div class="staff-scroll-cue" aria-hidden="true"><span>Scroll to explore</span><span class="staff-scroll-line"><span></span></span></div>
+    </div>
     <div class="staff-hero-bottom">
         <span><?php echo ui_icon('location'); ?>Bongabong, Oriental Mindoro</span>
         <span class="staff-hero-signature">Hospitality, thoughtfully managed.</span>
     </div>
 </section>
+</div>
 
 <?php if (isset($_GET["checkout"]) && $_GET["checkout"] == "success") { ?>
     <div class="page-alert success-box">Guest checked out successfully. The room is now available.</div>
@@ -279,7 +301,7 @@ $recentTransactions = mysqli_query($conn, "
                     $cardClass = $hasAvailable ? "room-card" : "room-card disabled-room-card";
                 ?>
 
-                <a href="index.php?room_id=<?php echo (int)$targetRoomId; ?>#booking" class="<?php echo $cardClass . ' ' . $selectedClass; ?>" data-staff-reveal>
+                <a href="index.php?room_id=<?php echo (int)$targetRoomId; ?>#booking" class="<?php echo $cardClass . ' ' . $selectedClass; ?>" data-staff-scroll-card>
                     <?php render_room_visual($group); ?>
 
                     <div class="room-info">
