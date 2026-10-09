@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/gcash.php';
 require_staff();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -39,6 +40,10 @@ try {
     if (!$room || !(int)$room['is_active']) {
         $conn->rollback();
         booking_failed('This room is unavailable. Please choose another room.', $room_id, $values);
+    }
+    if (payment_hold_for_room($conn, $room_id)) {
+        $conn->rollback();
+        booking_failed('An online GCash payment is in progress for this room. Please choose another room or try again in a few minutes.', $room_id, $values);
     }
 
     $now = new DateTimeImmutable();

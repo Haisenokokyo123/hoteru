@@ -158,8 +158,11 @@ def run():
     tables = {next(iter(row.values())) for row in db.query("SHOW TABLES")["rows"]}
     if not tables:
         db.call(mode="schema", sql=(ROOT / "database/schema.sql").read_text())
-        tables = {"users", "rooms", "reservations"}
-    check(tables == {"users", "rooms", "reservations"}, "Test database has unexpected or incomplete tables")
+        tables = {"users", "rooms", "reservations", "payment_attempts"}
+    if tables == {"users", "rooms", "reservations"}:
+        db.call(mode="schema", sql=(ROOT / "database/migrations/20261009_gcash_payments.sql").read_text())
+        tables.add("payment_attempts")
+    check(tables == {"users", "rooms", "reservations", "payment_attempts"}, "Test database has unexpected or incomplete tables")
     for table in sorted(tables):
         check(int(db.scalar(f"SELECT COUNT(*) FROM `{table}`")) == 0,
               "Use an empty test database; existing records must remain untouched")
@@ -349,8 +352,13 @@ def run():
                            "index.php?checkout=success")
             customer_token = customer.csrf("customer_home.php")
             guest_booking = {"room_id": rooms[0], "full_name": tag + " Guest Portal", "contact_number": "09111111111",
-                             "address": "Guest portal test address", "hours": "3", "payment_method": "GCash",
+                             "address": "Guest portal test address", "hours": "3", "payment_method": "Cash",
                              "csrf_token": customer_token}
+            gcash_target = customer.redirect("save_guest_booking.php", dict(guest_booking, payment_method="GCash"),
+                                             f"customer_home.php?room_id={rooms[0]}#book-room-{rooms[0]}")
+            gcash_page, _ = customer.request(gcash_target)
+            check("Online GCash payments are not configured" in gcash_page and fixture_reservations() == 2,
+                  "Unconfigured GCash must not create a booking")
             customer.redirect("save_guest_booking.php", guest_booking, "customer_home.php#our-rooms")
             row = db.query("SELECT hours,total_amount,is_archived FROM reservations WHERE room_id = ? ORDER BY id DESC LIMIT 1", rooms[0])["rows"][0]
             check(int(row["hours"]) == 3 and Decimal(row["total_amount"]) == Decimal("3703.50") and int(row["is_archived"]) == 0,
@@ -380,6 +388,7 @@ def run():
                 if int(row["id"]) not in rooms:
                     rooms.append(int(row["id"]))
             for room in rooms:
+                db.query("DELETE FROM payment_attempts WHERE room_id = ?", room)
                 db.query("DELETE FROM reservations WHERE room_id = ?", room)
                 db.query("DELETE FROM rooms WHERE id = ?", room)
             for user in users:

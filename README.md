@@ -10,11 +10,23 @@ The redesigned interface also needs `style.css`, `auth.css`, `portals.css`, `ui.
 
 The staff dashboard uses pronounced, reversible scroll animation throughout the page. Its photo header zooms and fades between photographs, a large decorative text ribbon travels horizontally, and a header progress line shows how far through the page you have scrolled. Statistics rise into view in sequence; section headings, room cards, the room picker, transaction panels and rows, booking steps, and the price summary each respond as they enter the screen. Scrolling back reverses the effects. On larger screens with enough vertical space, the photo header briefly stays in view while its sequence plays. Phones and shorter screens use an unpinned treatment. Scrolling stays native, booking links skip directly to the working sections, and focused controls remain visible. The Motion button remembers whether effects are enabled, and system reduced-motion settings take priority. The page remains usable without JavaScript. Dedicated staff assets use file modification times in their URLs so browsers load changes after deployment.
 
-The existing database schema and account records remain compatible. **Do not import `database/schema.sql` over your live database.** It is a schema-only copy for a new, empty development database; it contains no guest records or accounts. No database migration is required for these fixes.
+The existing database schema and account records remain compatible. **Do not import `database/schema.sql` over your live database.** It is a schema-only copy for a new, empty development database; it contains no guest records or accounts.
+
+## Online GCash checkout
+
+Guest bookings paid by GCash use PayMongo's hosted checkout. The guest is redirected to PayMongo, where GCash presents its official payment screen and QR code. The hotel creates the reservation only after PayMongo sends a signed `checkout_session.payment.paid` webhook. Returning from the wallet alone never confirms a room.
+
+Before enabling it in production:
+
+1. Run [20261009_gcash_payments.sql](database/migrations/20261009_gcash_payments.sql) once in phpMyAdmin. This adds the `payment_attempts` table; it does not alter existing bookings.
+2. Copy `htdocs/payment-config.php.example` to `htdocs/payment-config.php` on the server and set the PayMongo live secret key, webhook secret, and public HTTPS base URL. Keep this private file out of Git.
+3. In PayMongo, create a webhook pointing to `https://your-domain/paymongo_webhook.php` and subscribe it to `checkout_session.payment.paid`, plus the failed/expired checkout events if available.
+
+GCash is deliberately unavailable until all three are complete. Pending checkouts hold a room for 15 minutes to prevent double booking; failed, cancelled, and expired attempts never create a reservation. Cash bookings continue to confirm immediately.
 
 ## Hotel and room photographs
 
-Place the original `pic1`, `pic2`, `pic3`, `pic4`, `pic5`, and `pic6` photographs in `htdocs/images/hotel/`. The guest page uses `pic2` for its hero and displays all available photographs in a gallery. The staff header fades through the available photographs as you scroll, starting with `pic2` and then `pic4`, `pic5`, `pic6`, `pic1`, and `pic3`. Missing files are skipped automatically. Until these files are supplied, the headers use the existing `hoteru.png` and the gallery is omitted. No database changes are needed to add photographs.
+The supplied `pic1` through `pic6` photographs are now in `htdocs/images/hotel/`. The guest page uses `pic2` for its hero and displays all available photographs in a gallery. The staff header fades through the available photographs as you scroll, starting with `pic2` and then `pic4`, `pic5`, `pic6`, `pic1`, and `pic3`. Missing files are skipped automatically. Until these files are supplied, the headers use the existing `hoteru.png` and the gallery is omitted. No database changes are needed to add photographs.
 
 Place room photographs in `htdocs/images/rooms/`, using these filenames (before the extension):
 
@@ -43,7 +55,7 @@ Requires PHP with `mysqli`/mysqlnd and a MySQL-compatible database. Tested with 
 
 In the prepared cloud environment, PHP is `/workspace/.hoteru-runtime/bin/php`. Start MariaDB with `/workspace/.hoteru-db/start.sh`; use `DB_HOST=localhost`, `DB_USER=agent`, an empty `DB_PASSWORD`, `DB_NAME=hotel_test`, and `DB_SOCKET=/workspace/.hoteru-db/run/mariadb.sock` for local socket authentication. This local database contains the supplied backup.
 
-Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Guest and staff bookings both start immediately, lock the room while checking overlaps, and make it occupied in every portal. Room availability considers a stay's checkout instant to be available. Receipts use the saved charge even if the room price changes later. No database migration is required.
+Bookings use whole nights; the existing database calls that column `hours`. PHP and the database session use Philippine time. Cash bookings start immediately, lock the room while checking overlaps, and make it occupied in every portal. Online GCash bookings are created only after the payment webhook is confirmed. Room availability considers a stay's checkout instant to be available. Receipts use the saved charge even if the room price changes later.
 
 ## Regression tests
 

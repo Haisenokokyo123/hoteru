@@ -1,0 +1,176 @@
+<?php
+/* Online GCash payments use PayMongo's hosted checkout. No card or wallet
+ * credentials ever pass through this application. */
+
+function payment_attempts_available($conn) {
+    static $available = null;
+    if ($available !== null) return $available;
+    $result = $conn->query("SHOW TABLES LIKE 'payment_attempts'");
+    $available = $result && $result->num_rows === 1;
+    return $available;
+}
+
+function payment_settings() {
+    static $settings = null;
+    if ($settings !== null) return $settings;
+    $settings = [];
+    $configPath = __DIR__ . '/payment-config.php';
+    if (is_file($configPath)) {
+        $local = require $configPath;
+        if (is_array($local)) $settings = $local;
+    }
+    foreach (['PAYMONGO_SECRET_KEY', 'PAYMONGO_WEBHOOK_SECRET', 'APP_BASE_URL'] as $name) {
+        $value = getenv($name);
+        if (is_string($value) && trim($value) !== '') $settings[$name] = trim($value);
+    }
+    return $settings;
+}
+
+function payment_setting($name) {
+    $settings = payment_settings();
+    $value = $settings[$name] ?? null;
+    return is_string($value) && trim($value) !== '' ? trim($value) : null;
+}
+
+function payment_base_url() {
+    $url = payment_setting('APP_BASE_URL');
+    return $url ? rtrim($url, '/') : null;
+}
+
+function gcash_is_configured() {
+    return payment_setting('PAYMONGO_SECRET_KEY') !== null && payment_base_url() !== null;
+}
+
+function gcash_webhook_is_configured() {
+    return gcash_is_configured() && payment_setting('PAYMONGO_WEBHOOK_SECRET') !== null;
+}
+
+function payment_hold_for_room($conn, $roomId) {
+    if (!payment_attempts_available($conn)) return null;
+    $statement = $conn->prepare("SELECT id, booking_token, full_name, expires_at FROM payment_attempts WHERE room_id = ? AND status = 'pending' AND expires_at > NOW() ORDER BY id DESC LIMIT 1");
+    $statement->bind_param('i', $roomId);
+    $statement->execute();
+    return $statement->get_result()->fetch_assoc() ?: null;
+}
+
+function payment_http_request($method, $path, $payload = null) {
+    $secret = payment_setting('PAYMONGO_SECRET_KEY');
+    if ($secret === null) throw new RuntimeException('Online GCash is not configured.');
+    $headers = [
+        'Authorization: Basic ' . base64_encode($secret . ':'),
+        'Accept: application/json',
+    ];
+    $content = '';
+    if ($payload !== null) {
+        $content = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $headers[] = 'Content-Type: application/json';
+    }
+    $context = stream_context_create(['http' => [
+        'method' => $method,
+        'header' => implode("\r\n", $headers),
+        'content' => $content,
+        'ignore_errors' => true,
+        'timeout' => 20,
+    ]]);
+    $response = @file_get_contents('https://api.paymongo.com' . $path, false, $context);
+    $statusLine = $http_response_header[0] ?? '';
+    preg_match('/\s(\d{3})\s/', $statusLine, $match);
+    $status = isset($match[1]) ? (int) $match[1] : 0;
+    $decoded = is_string($response) && $response !== '' ? json_decode($response, true) : null;
+    if ($status < 200 || $status >= 300 || !is_array($decoded)) {
+        error_log('PayMongo request failed with HTTP ' . $status);
+        throw new RuntimeException('GCash could not start right now. Please choose Cash or try again.');
+    }
+    return $decoded;
+}
+
+function create_gcash_checkout($attempt, $roomName) {
+    $baseUrl = payment_base_url();
+    if ($baseUrl === null) throw new RuntimeException('Online GCash is not configured.');
+    $amount = (int) round((float) $attempt['amount'] * 100);
+    $token = rawurlencode($attempt['booking_token']);
+    $response = payment_http_request('POST', '/v1/checkout_sessions', ['data' => ['attributes' => [
+        'line_items' => [[
+            'currency' => 'PHP',
+            'amount' => $amount,
+            'description' => 'Bongabong View Hotel — ' . $roomName,
+            'name' => $roomName,
+            'quantity' => 1,
+        ]],
+        'payment_method_types' => ['gcash'],
+        'success_url' => $baseUrl . '/gcash_return.php?token=' . $token,
+        'cancel_url' => $baseUrl . '/gcash_return.php?token=' . $token . '&cancelled=1',
+        'description' => 'Hotel booking payment',
+        'metadata' => ['booking_token' => $attempt['booking_token']],
+    ]]]);
+    $attributes = $response['data']['attributes'] ?? [];
+    $id = $response['data']['id'] ?? null;
+    $url = $attributes['checkout_url'] ?? null;
+    if (!is_string($id) || !is_string($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+        throw new RuntimeException('GCash did not return a checkout link. Please try again.');
+    }
+    return ['id' => $id, 'url' => $url];
+}
+
+function confirm_paid_gcash_attempt($conn, $checkoutId, $payload) {
+    if (!payment_attempts_available($conn)) throw new RuntimeException('Payment database migration is missing.');
+    $conn->begin_transaction();
+    try {
+        $statement = $conn->prepare('SELECT * FROM payment_attempts WHERE provider_checkout_id = ? FOR UPDATE');
+        $statement->bind_param('s', $checkoutId);
+        $statement->execute();
+        $attempt = $statement->get_result()->fetch_assoc();
+        if (!$attempt) throw new RuntimeException('Unknown payment checkout.');
+        if ($attempt['status'] === 'paid') {
+            $conn->commit();
+            return (int) $attempt['reservation_id'];
+        }
+        if ($attempt['status'] !== 'pending' || strtotime($attempt['expires_at']) <= time()) {
+            $statement = $conn->prepare("UPDATE payment_attempts SET status = 'expired', provider_payload = ? WHERE id = ?");
+            $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES);
+            $statement->bind_param('si', $encoded, $attempt['id']);
+            $statement->execute();
+            $conn->commit();
+            throw new RuntimeException('Payment arrived after the reservation hold expired.');
+        }
+        $statement = $conn->prepare('SELECT room_rate, is_active, room_name FROM rooms WHERE id = ? FOR UPDATE');
+        $statement->bind_param('i', $attempt['room_id']);
+        $statement->execute();
+        $room = $statement->get_result()->fetch_assoc();
+        if (!$room || !(int) $room['is_active']) throw new RuntimeException('The room is no longer available.');
+        $checkIn = date('Y-m-d H:i:s');
+        $checkOut = (new DateTimeImmutable())->modify('+' . (int) $attempt['nights'] . ' days')->format('Y-m-d H:i:s');
+        $statement = $conn->prepare('SELECT id FROM reservations WHERE room_id = ? AND is_archived = 0 AND check_in < ? AND check_out > ? LIMIT 1 FOR UPDATE');
+        $statement->bind_param('iss', $attempt['room_id'], $checkOut, $checkIn);
+        $statement->execute();
+        if ($statement->get_result()->fetch_assoc()) throw new RuntimeException('The room is no longer available.');
+        $paymentMethod = 'GCash';
+        $statement = $conn->prepare("INSERT INTO reservations (room_id, full_name, contact_number, address, id_number, hours, extra_bed, food, damages, payment_method, total_amount, check_in, check_out, is_archived) VALUES (?, ?, ?, ?, '', ?, 0, 0, 0, ?, ?, ?, ?, 0)");
+        $statement->bind_param('isssisdss', $attempt['room_id'], $attempt['full_name'], $attempt['contact_number'], $attempt['address'], $attempt['nights'], $paymentMethod, $attempt['amount'], $checkIn, $checkOut);
+        $statement->execute();
+        $reservationId = $conn->insert_id;
+        $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        $statement = $conn->prepare("UPDATE payment_attempts SET status = 'paid', reservation_id = ?, paid_at = NOW(), provider_payload = ? WHERE id = ?");
+        $statement->bind_param('isi', $reservationId, $encoded, $attempt['id']);
+        $statement->execute();
+        $conn->commit();
+        return $reservationId;
+    } catch (Throwable $error) {
+        $conn->rollback();
+        throw $error;
+    }
+}
+
+function paymongo_signature_is_valid($payload, $signature) {
+    $secret = payment_setting('PAYMONGO_WEBHOOK_SECRET');
+    if ($secret === null || !is_string($signature)) return false;
+    $parts = [];
+    foreach (explode(',', $signature) as $item) {
+        [$key, $value] = array_pad(explode('=', trim($item), 2), 2, null);
+        if ($key !== null && $value !== null) $parts[$key] = $value;
+    }
+    if (empty($parts['t']) || empty($parts['te']) || !ctype_digit($parts['t'])) return false;
+    if (abs(time() - (int) $parts['t']) > 300) return false;
+    $expected = hash_hmac('sha256', $parts['t'] . '.' . $payload, $secret);
+    return hash_equals($expected, $parts['te']);
+}

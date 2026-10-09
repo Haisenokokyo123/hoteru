@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/gcash.php';
 require_role('customer');
 
 $conn = db_connect();
@@ -86,8 +87,11 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
         <?php } else { ?>
             <div class="portal-room-grid">
             <?php while ($room = mysqli_fetch_assoc($rooms)) { ?>
-                <?php $activeReservation = get_active_reservation($conn, (int) $room['id']); ?>
-                <article class="portal-room-card <?php echo $activeReservation ? 'is-occupied' : ''; ?>" data-reveal>
+                <?php
+                    $activeReservation = get_active_reservation($conn, (int) $room['id']);
+                    $paymentHold = !$activeReservation ? payment_hold_for_room($conn, (int) $room['id']) : null;
+                ?>
+                <article class="portal-room-card <?php echo ($activeReservation || $paymentHold) ? 'is-occupied' : ''; ?>" data-reveal>
                     <?php render_room_visual($room, 'portal-room-visual'); ?>
                     <div class="portal-room-content">
                         <p class="portal-eyebrow"><?php echo e($room['room_type']); ?></p>
@@ -96,11 +100,13 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
                             <p class="portal-room-rate"><?php echo money($room['room_rate']); ?><span>per night</span></p>
                             <?php if ($activeReservation) { ?>
                                 <span class="portal-room-status">Occupied</span>
+                            <?php } elseif ($paymentHold) { ?>
+                                <span class="portal-room-status">Payment in progress</span>
                             <?php } else { ?>
                                 <a class="portal-room-inquire" href="#book-room-<?php echo (int) $room['id']; ?>">Book now <?php echo ui_icon('arrow-up'); ?></a>
                             <?php } ?>
                         </div>
-                        <?php if (!$activeReservation) { ?>
+                        <?php if (!$activeReservation && !$paymentHold) { ?>
                         <details class="portal-booking-form" id="book-room-<?php echo (int) $room['id']; ?>"<?php echo $failedGuestBookingRoomId === (int) $room['id'] ? ' open' : ''; ?>>
                             <summary>Book <?php echo e($room['room_name']); ?> <span aria-hidden="true">+</span></summary>
                             <form action="save_guest_booking.php" method="POST" data-booking-form data-rate="<?php echo e($room['room_rate']); ?>">
@@ -119,8 +125,8 @@ foreach (['pic1', 'pic2', 'pic3', 'pic4', 'pic5', 'pic6'] as $photoName) {
                                     <p><span>Room charge</span><strong data-room-charge><?php echo money($room['room_rate'] * (int) ($guestBookingOld['hours'] ?? 1)); ?></strong></p>
                                     <p class="portal-stay-total"><span>Total amount</span><strong data-total-display><?php echo money($room['room_rate'] * (int) ($guestBookingOld['hours'] ?? 1)); ?></strong></p>
                                 </section>
-                                <button class="portal-button" type="submit">Confirm booking <?php echo ui_icon('arrow-up'); ?></button>
-                                <p>Booking starts now and makes this room occupied across the hotel system.</p>
+                                <button class="portal-button" type="submit">Continue to payment <?php echo ui_icon('arrow-up'); ?></button>
+                                <p>Cash bookings are confirmed immediately. GCash opens an official secure checkout; the room is only booked after payment is confirmed.</p>
                             </form>
                         </details>
                         <?php } ?>

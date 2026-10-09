@@ -1,0 +1,8 @@
+<?php
+// Copy to payment-config.php, add your live PayMongo values, and keep that
+// file private. It is intentionally ignored by Git.
+return [
+    'PAYMONGO_SECRET_KEY' => 'sk_live_replace_me',
+    'PAYMONGO_WEBHOOK_SECRET' => 'whsk_replace_me',
+    'APP_BASE_URL' => 'https://your-domain.example',
+];
